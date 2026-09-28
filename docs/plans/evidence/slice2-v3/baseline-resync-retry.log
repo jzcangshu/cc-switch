@@ -1,0 +1,20 @@
+
+running 1 test
+test mode::controller::mode_tests::proof_real_resync_keeps_native_auth_and_switches_bucket ... FAILED
+
+failures:
+
+---- mode::controller::mode_tests::proof_real_resync_keeps_native_auth_and_switches_bucket stdout ----
+
+thread 'mode::controller::mode_tests::proof_real_resync_keeps_native_auth_and_switches_bucket' (41396) panicked at src\mode\controller.rs:4194:9:
+assertion `left == right` failed
+  left: "cc-switch-official"
+ right: "custom"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    mode::controller::mode_tests::proof_real_resync_keeps_native_auth_and_switches_bucket
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2913 filtered out; finished in 0.09s
+

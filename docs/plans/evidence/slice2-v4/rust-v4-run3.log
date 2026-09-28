@@ -1,0 +1,24 @@
+   Compiling cc-switch v3.20.4 (C:\Users\jzcan\.codex\worktrees\slice2-proof\cc-switch\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 22s
+     Running unittests src\lib.rs (D:/cc-switch/.tmp-cluster/cc-hr-target-v3\debug\deps\cc_switch_lib-9b3109f266381f9c.exe)
+
+running 6 tests
+test mode::controller::mode_tests::proof_v4_actual_save_rollback_then_full_mode_startup ... ok
+test mode::controller::mode_tests::proof_v4_disabling_unify_restores_complete_dormant_table ... ok
+test mode::controller::mode_tests::proof_v4_generated_shapes_import_and_copy_are_explicit ... ok
+
+thread 'mode::controller::mode_tests::proof_v4_real_address_change_rewrites_endpoint_and_preserves_auth' (37924) panicked at src\mode\controller.rs:4358:62:
+called `Result::unwrap()` on an `Err` value: "重启代理服务器失败: 地址绑定失败: 无效的地址: invalid socket address syntax"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mode::controller::mode_tests::proof_v4_real_address_change_rewrites_endpoint_and_preserves_auth ... FAILED
+test mode::controller::mode_tests::proof_v4_safe_snippet_fields_remain_in_extractor_but_startup_skips ... ok
+test mode::controller::mode_tests::proof_v4_unified_proxy_official_third_party_roundtrip ... ok
+
+failures:
+
+failures:
+    mode::controller::mode_tests::proof_v4_real_address_change_rewrites_endpoint_and_preserves_auth
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 2917 filtered out; finished in 0.48s
+
+error: test failed, to rerun pass `--lib`

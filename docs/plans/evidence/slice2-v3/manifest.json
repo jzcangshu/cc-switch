@@ -1,0 +1,68 @@
+{
+  "base": "846de29c13ac4d65f164db8c15dd5fd58e29f972",
+  "toolchain": "rustc 1.95",
+  "clientVersion": "0.158.0-alpha.2.1",
+  "clientSha256": "8f0554ede25bbc5450921897c468b2e84635aa513c5017457997af0954581f49",
+  "source": [
+    {
+      "file": "src-tauri/src/services/provider/codex_direct.rs",
+      "baseSha256": "1b8bcb1bedfb4c2f65a6cc853ab9edd201513a4ba72790a042734d443c8a9cdb",
+      "candidateSha256": "130d12438e370202150e229b7c87beb00decf12b13e922b1cb79e19fc093948a"
+    },
+    {
+      "file": "src-tauri/src/services/proxy.rs",
+      "baseSha256": "2ae4576859454872fd3bd2e81f8f1d18b33f61a69206c82e024828463408f643",
+      "candidateSha256": "7a7375a8548b894065f0114aff033b76746fbacd49a4f4bfbeabfc350a61c5d7"
+    },
+    {
+      "file": "src-tauri/src/services/provider/live.rs",
+      "baseSha256": "e25a6d2394b95dc65213ca0b1355a7055b4d3c279fa42473cd9a7534e9de6773",
+      "candidateSha256": "44262c6e719c132f9eeb83989de64bbd36572e79a0f307c1d0e23ada250dfa96"
+    },
+    {
+      "file": "src-tauri/src/lib.rs",
+      "baseSha256": "6c2f0c1aea9fe2a0b156ccb0de97e8652ec7ab702a68867083b57ee5703c1588",
+      "candidateSha256": "41b7d24737567ef7ffbf573cd957068c7ea57e6633089e148cb98905ee34b276"
+    },
+    {
+      "file": "src-tauri/src/mode/controller.rs",
+      "baseSha256": "5babe54776546ad1ac8625e14c234da21385468ab5bb0c1ff3dbc861e36be24f",
+      "candidateSha256": "4f8eb9cf778fb7d54b7b3a69421ff991e25a3c80e5a68377f767aeebbb5e4262"
+    }
+  ],
+  "results": {
+    "candidateDedicated": {
+      "passed": 12,
+      "failed": 0
+    },
+    "codexFiltered": {
+      "passed": 702,
+      "failed": 0,
+      "ignored": 1
+    },
+    "projection": {
+      "passed": 6,
+      "failed": 0
+    },
+    "operation": {
+      "passed": 18,
+      "failed": 0
+    },
+    "fullLib": {
+      "passed": 2905,
+      "failed": 1,
+      "ignored": 10,
+      "filteredOut": 1
+    },
+    "strengthenedDedicated": {
+      "passed": 10,
+      "failed": 2,
+      "reason": "Windows atomic replacement error 1175; see candidate-confirm.log"
+    }
+  },
+  "limitations": [
+    "No model request was sent by client protocol tests.",
+    "Filtered suites overlap.",
+    "Repeated Windows error 1175 occurred in baseline and candidate; one unchanged run passed all 12 dedicated tests, strengthened tests later encountered two more file errors."
+  ]
+}

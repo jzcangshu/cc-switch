@@ -1,0 +1,18 @@
+
+running 1 test
+test services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active ... FAILED
+
+failures:
+
+---- services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active stdout ----
+
+thread 'services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active' (12552) panicked at src\services\provider\mod.rs:2210:14:
+start proxy service: "启动代理服务器失败: 地址绑定失败: 通常每个套接字地址(协议/网络地址/端口)只允许使用一次。 (os error 10048)"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2916 filtered out; finished in 0.01s
+

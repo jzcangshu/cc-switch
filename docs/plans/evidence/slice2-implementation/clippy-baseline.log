@@ -1,0 +1,14 @@
+   Compiling cc-switch v3.20.4 (C:\Users\jzcan\.codex\worktrees\codex-history-repair\cc-switch\src-tauri)
+error: taken reference of right operand
+    --> src\proxy\providers\transform_codex_chat.rs:4498:32
+     |
+4498 |             .is_some_and(|url| url == &data_url)));
+     |                                ^^^^^^^---------
+     |                                       |
+     |                                       help: use the right value directly: `data_url`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#op_ref
+     = note: `-D clippy::op-ref` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::op_ref)]`
+
+error: could not compile `cc-switch` (lib test) due to 1 previous error

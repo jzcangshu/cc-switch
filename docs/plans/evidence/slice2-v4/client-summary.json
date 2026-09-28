@@ -1,0 +1,78 @@
+{
+  "version": "0.158.0-alpha.2.1",
+  "results": [
+    {
+      "name": "upgrade_before",
+      "defaultList": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "provider": "cc-switch-official"
+        }
+      ],
+      "allList": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "provider": "cc-switch-official"
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "provider": "openai"
+        },
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "custom"
+        }
+      ],
+      "legacyResume": {
+        "provider": "cc-switch-official"
+      },
+      "created": {
+        "id": "01a0e8d2-6095-77f0-bc8f-b512a5c755ea",
+        "provider": "cc-switch-official",
+        "persisted": true,
+        "persistedProvider": "cc-switch-official"
+      },
+      "createdReadError": {
+        "code": -32601,
+        "message": "list_turns is not supported yet"
+      }
+    },
+    {
+      "name": "upgrade_after",
+      "defaultList": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "custom"
+        }
+      ],
+      "allList": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "provider": "cc-switch-official"
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "provider": "openai"
+        },
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "custom"
+        }
+      ],
+      "legacyResume": {
+        "code": -32600,
+        "message": "failed to load configuration: Model provider `cc-switch-official` not found"
+      },
+      "created": {
+        "id": "01a0e8d2-62ca-7981-8d47-14c738d0f385",
+        "provider": "custom",
+        "persisted": true,
+        "persistedProvider": "custom"
+      },
+      "createdReadError": {
+        "code": -32601,
+        "message": "list_turns is not supported yet"
+      }
+    }
+  ]
+}

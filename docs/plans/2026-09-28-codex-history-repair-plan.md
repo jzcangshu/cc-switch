@@ -1,6 +1,10 @@
-# Codex（编程助手）统一会话历史修复计划 v2（写引擎时代）
+# Codex（编程助手）统一会话历史修复计划第四版（写引擎时代）
 
-> **状态（2026-09-28 晚）：** v2 就地取代同日早间的 v1 计划。上游合入 Codex 写引擎重构（`0e6430ab` 等 22 提交）后，v1 的切片一载体被结构性取代，PR #7728 已关闭（superseded）；逐项核查确认切片二、三的根因**仍然存在**且改动点更清晰。v1 全文见 fork 分支 `codex/codex-history-repair`（远端留档）及本分支 git 历史（`75ed020f`）；根因证据链见同目录 `2026-09-28-codex-history-investigation.md`（仍有效，其根因一与回填污染部分已被上游结构性修复）。
+> **第四版执行入口（2026-09-29）：** 先读同目录 `2026-09-29-slice2-v4-execution-addendum.md`（执行补充）。该文明确精确文案、真实生成函数测试、旧会话恢复发布阻断及设置失败恢复边界；这些增量约束优先于第三版。第四版证据单独保存在 `evidence/slice2-v4/`（第四版证据），旧证据不改写。
+>
+> **第三版复核记录：** 切片二已按完整仓库诊断和桌面内置客户端实测重写。采用既有共享槽变体与独立读入守卫，不扩大启动恢复权限。具体证据见同目录 `2026-09-28-slice2-v3-technical-analysis.md`（技术分析）。其余切片仍为后续设计，未因本轮诊断获得实现批准。
+>
+> **历史状态（2026-09-28 晚）：** v2 就地取代同日早间的 v1 计划。上游合入 Codex 写引擎重构（`0e6430ab` 等 22 提交）后，v1 的切片一载体被结构性取代，PR #7728 已关闭（superseded）；逐项核查确认切片二、三的根因**仍然存在**且改动点更清晰。v1 全文见 fork 分支 `codex/codex-history-repair`（远端留档）及本分支 git 历史（`75ed020f`）；根因证据链见同目录 `2026-09-28-codex-history-investigation.md`（仍有效，其根因一与回填污染部分已被上游结构性修复）。
 >
 > **工作区：** `C:\Users\jzcan\.codex\worktrees\codex-history-repair\cc-switch`，分支 `verify/history-repair-on-new-engine`（基线 `846de29c` = origin/main）。该目录曾被外部清理误删过一次（仅剩 node_modules）；提交对象在主仓库共享对象库中不受影响，恢复命令：`git -C D:/cc-switch worktree prune && git -C D:/cc-switch worktree add <路径> verify/history-repair-on-new-engine`。Rust 工具链用 `RUSTUP_HOME=/d/cc-switch/.tmp-cluster/rustup-1.95`（仓库钉 1.95）；全量测试须 `-j 2` 且 `CARGO_INCREMENTAL=0`（本机内存与磁盘有限）；热构建缓存在 `/d/cc-switch/.tmp-cluster/cc-hr-target-v3`。
 
@@ -8,28 +12,32 @@
 
 **Architecture（载体）：** 上游写引擎（`src-tauri/src/live/` + `services/provider/codex_direct.rs`）。所有修改建立在引擎的 `Route` / `RouteWrite` 扩展点上；保留引擎的写入次序、字段所有权、休眠表与 retired 清理机制。
 
+**执行方式：** 后续使用 executing-plans（执行计划技能）逐项实施；以本计划第 4 节、第四版执行补充及第三版架构分析为准，不执行旧交接中的新增变体或扩大接管识别方案。
+
+**技术栈：** Rust（后端语言）、Tauri（桌面框架）、toml_edit（保留配置结构的编辑库）、SQLite（状态数据库）。
+
 ---
 
 ## 1. 新引擎架构要点（动手前必读）
 
 - **路由判定按供应商类别**：`CodexProjection::of` 对 `is_official` 的行无条件返回 `Route::Official`，**不读行文本**；非官方行走 `third_party_route`（显式第三方选择器→其表；保留 id 旧表→规范化；`openai_base_url` 旧形态→改写为 custom 表）。
-- **写入只动自有字段**：`CodexConfigPatch` 替换 `ROW_TOP_FIELDS` / `CODEX_EXCLUSIVE_TOP` / 路由槽；**用户自己的 provider 表、MCP、`[projects]`、注释字节级保留**；retired/占位/代理残留表按归属证据清理，被 profile 引用的表不动。
+- **写入只动既定字段边界**：`CodexConfigPatch`（配置补丁）替换关键字段、独有字段和应用路由槽；用户无关的非托管供应商表、工具服务及项目配置保持。共享槽、保留标识表和有归属证据的旧表已有上游处理规则，不能笼统承诺所有表字节不变。
 - **路由写入形态**（`RouteWrite`，`live/project/codex.rs`）：
   - `Official { dormant_base_url }` — 官方直连且开关关：不写选路；既有 custom 表改写成休眠形态（本地代理地址 + 占位 Key），保第三方旧会话 resume。
   - `OfficialMirror` — 官方直连且开关开：选路 `custom` + 官方镜像表（`official_mirror_table(None, true)`），认证走 `auth.json`。
   - `Custom(Table)` — 第三方（直连或代理契约）：选路 `custom`。
   - `OfficialProxy(Table)` — 官方代理：选路 **`cc-switch-official`**（`OFFICIAL_PROXY_ROUTE_ID`），表为 `official_mirror_table(Some(base_url), false)`。
   - `BuiltIn` / `Default` — 内置 id / 无路由。
-- **快照式回填已删除**：`restore_live_settings_for_provider_backfill`、common-config 片段机制不存在；行纯净由"live 从不回写行 + 行内路由表不参与投影"保证。
+- **切换快照回填已删除**：切换不再依赖旧快照回填和通用片段合并；导入、兼容迁移及片段抽取入口仍存在，不能认定读入污染路径已经全部消失。
 - **profile 覆盖**在写入前由 `check_effective_route` 拒绝并指出键名（原生覆盖 v1 计划 4.1 第 10 行）。
 
 ## 2. 硬约束（沿用 v1，全部仍然有效）
 
 1. 任意第三方手工路由和未知供应商标识不被统一开关改写。→ 引擎已保证：unify 仅作用于 `Route::Official` 分支。
-2. 当前有效官方登录是权威；只切换历史投影时不重新写入冻结认证。→ `AuthGoal::Official/KeepNative`；auth.json 永不入行。
+2. 当前有效官方登录是权威；只切换历史投影时不重新写入冻结认证。→ 保持现有官方认证目标，不增加切换回填认证。显式导入读取认证属于既有独立入口，不能概括为认证永不入行。
 3. 未勾选迁入官方历史，不修改既有官方历史。→ 迁移门槛与用户勾选语义（切片三）。
 4. 开关开启且活动配置受应用管理时，新建会话进入同一个共享桶；直连和接管只是该桶下端点与传输能力不同。→ **当前未满足代理模式，本 v2 切片二的目标**。
-5. 投影可逆：原始"没有选择器"和"显式官方选择器"必须区分；用户原有的同形表必须保留。→ 引擎字段写入天然可逆；行内不落投影；用户表保留。
+5. 保持原始供应商行不因投影而回填；不改变上游官方类别决定投影的规则。用户手工同形表不能因新形状识别在启动时被认领。→ 本切片不扩大恢复权限；主动供应商切换仍沿上游共享槽归应用管理的规则，不承诺任意用户共享槽内容字节可逆，也不新增恢复显式官方选择器的逻辑。
 6. 迁移后，被选择的会话段在元数据、持久化运行时供应商字段和权威数据库中保持一致；消息正文、工具内容、密文、会话编号不变。→ 切片三。
 7. 恢复仅作用于账本能够证明来源的会话。→ 切片三。
 8. 一次失败不能写完成标记；部分完成必须可诊断、可重试。→ 切片三。
@@ -37,90 +45,128 @@
 
 ## 3. v1 问题清单存亡核查（2026-09-28，基线 `846de29c`）
 
-| 原问题 | 状态 | 证据（main） |
-| --- | --- | --- |
-| #6340 显式官方路由注入被拒 → 迁移永不执行 | ✅ 结构性修复：按类别判路由，Mirror 原生写 `custom`，门槛满足，有集成测试 | `project/codex.rs:185`、`codex_direct.rs:371`、`provider_service.rs reapply_codex_official_live_rewrites_only_the_session_routing` |
-| 回填污染行（切片一逆操作的存在理由） | ✅ 结构性消失：live 从不回写行、行内路由表不投影、快照回填删除 | 08a80b90、b0875f4c |
-| v1 切片一的三个 review 发现（父表误删/内联半回退/非字符串镜像） | ✅ 全部失的：`inject_*`/`with_original` 已不存在；main 的防御性 strip 为原始版本（`codex_config.rs:2416`），其"选择器无条件删除"缺口残留但行内不应再有投影，不值得单独修 | — |
-| 第三方手工路由不被改写（硬约束 1） | ✅ 保持 | `third_party_route` |
-| profile 覆盖选路（v1 4.1 行 10） | ✅ 原生拒绝并指出键名 | `check_effective_route` |
-| **接管分桶分裂（根因二）** | ❌ **存在**：Proxy 分支不读统一开关，接管会话进 `cc-switch-official` 桶 | `codex_direct.rs:395-413`、`project/codex.rs:459` |
-| **接管历史不在迁移源（根因四 7.2）** | ❌ **存在**：迁移源仅内建 `openai` 桶 | `migration.rs:46,190` |
-| **运行时字段遗漏（根因四 7.1）** | ❌ **存在**：逐行改写仍只处理 `session_meta`，回调无状态 | `migration.rs:491-497,1017-1022` |
-| 一次性完成标记 / 账本 / 重试（根因四 7.3-7.5） | ❌ 存在（v1 机制原样） | `migration.rs:217,256,318` |
-| 状态界面（切片四）/ 请求兼容（切片五） | 未变 | — |
+| 原问题                                                          | 状态                                                                                                                                                                     | 证据（main）                                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| #6340 显式官方路由注入被拒 → 迁移永不执行                       | ✅ 结构性修复：按类别判路由，Mirror 原生写 `custom`，门槛满足，有集成测试                                                                                                | `project/codex.rs:185`、`codex_direct.rs:371`、`provider_service.rs reapply_codex_official_live_rewrites_only_the_session_routing` |
+| 回填污染行（切片一逆操作的存在理由）                            | ✅ 结构性消失：live 从不回写行、行内路由表不投影、快照回填删除                                                                                                           | 08a80b90、b0875f4c                                                                                                                 |
+| v1 切片一的三个 review 发现（父表误删/内联半回退/非字符串镜像） | ✅ 全部失的：`inject_*`/`with_original` 已不存在；main 的防御性 strip 为原始版本（`codex_config.rs:2416`），其"选择器无条件删除"缺口残留但行内不应再有投影，不值得单独修 | —                                                                                                                                  |
+| 第三方手工路由不被改写（硬约束 1）                              | ✅ 保持                                                                                                                                                                  | `third_party_route`                                                                                                                |
+| profile 覆盖选路（v1 4.1 行 10）                                | ✅ 原生拒绝并指出键名                                                                                                                                                    | `check_effective_route`                                                                                                            |
+| **接管分桶分裂（根因二）**                                      | ❌ **存在**：Proxy 分支不读统一开关，接管会话进 `cc-switch-official` 桶                                                                                                  | `codex_direct.rs:395-413`、`project/codex.rs:459`                                                                                  |
+| **接管历史不在迁移源（根因四 7.2）**                            | ❌ **存在**：迁移源仅内建 `openai` 桶                                                                                                                                    | `migration.rs:46,190`                                                                                                              |
+| **运行时字段遗漏（根因四 7.1）**                                | ❌ **存在**：逐行改写仍只处理 `session_meta`，回调无状态                                                                                                                 | `migration.rs:491-497,1017-1022`                                                                                                   |
+| 一次性完成标记 / 账本 / 重试（根因四 7.3-7.5）                  | ❌ 存在（v1 机制原样）                                                                                                                                                   | `migration.rs:217,256,318`                                                                                                         |
+| 状态界面（切片四）/ 请求兼容（切片五）                          | 未变                                                                                                                                                                     | —                                                                                                                                  |
 
 **待与维护者确认（不自行实现）：**
+
 1. 官方行 `openai_base_url` 中转：引擎不投影该键，fresh 行切换时静默失效（与开关无关）；live 已有的在 unify 开时惰性保留、关时恢复。v1 要求的"拒绝统一并报告"路径不存在。
 2. 第三方行任意 id 一律规范化为 `custom`（"Rows that use another id… normalized on the way out"）：旧 id 的表按 retired 清理，旧 id 标签的历史会话在默认过滤下不可见；休眠表只保 resume 能力不改会话标签。与 #7487 的语义关系需确认。
-3. Codex CLI 侧"会话按 `model_provider` id 分桶、与表形态无关"（镜像表带/不带 base_url、WS 开关）是客户端行为，仓库代码无法证明——切片二的实机验收第 1 项必须先行验证，不成立则方案重估。
+3. 桌面内置客户端已隔离验证相同供应商标识在不同镜像表形态下的默认列表及合成会话恢复；真实发送、运行中重新加载配置和其他版本仍按第 9 节验证。详细版本及限制见技术分析。
 
-## 4. 切片二 v2：官方代理路由的共享桶与所有权解耦
+## 4. 切片二第四版：共享槽写入与读入保护
 
-### 4.1 Problem
+> 技术决策和实测依据见同目录 `2026-09-28-slice2-v3-technical-analysis.md`（技术分析）。第二版新增专用变体、扩大通用接管识别的提案已被本节取代。已有调查报告中的旧写引擎描述仅作历史证据，不作为当前实现指南。
 
-`codex_direct.rs plan()` 的 Proxy 分支对官方行无条件返回 `RouteWrite::OfficialProxy`（选路 `cc-switch-official`），**不读统一开关**。后果：unify 开启时，直连新会话进 `custom` 桶、代理模式新会话进 `cc-switch-official` 桶，直连↔接管往返令一半历史默认不可见（#5974 症状族）；迁移源不含 `cc-switch-official`，这些会话永远不可迁移。上游选择独立 id 的理由需要拆开看（经 2026-09-28 独立探索 + 独立评审双线核实）：对**请求分派**它已是残留信号（代理纯状态驱动，见步 0）；对**配置形状所有权检测**它仍然现役（`is_codex_live_taken_over` 及其消费点，见步 0 清单）——本切片必须为后者设计新形态识别，不能只改写入侧。
+> **落地状态：** 功能切口已通过隔离诊断确认，但尚不是可宣称验证全绿的产品补丁。正式交付前须处理复现中的原子替换错误 1175，使用无默认端口冲突的测试环境，并补齐真实发送验收。修复这些未闭合项不得直接并入本切片或改写写引擎主逻辑，先复现与划定责任边界。
 
-### 4.2 Proposal
+### 4.1 目标与禁止范围
 
-统一开关开启 + 官方代理 → 新增 `RouteWrite::OfficialMirrorProxy { base_url }`：选路 `custom`，表为 `official_mirror_table(Some(base_url), false)`（镜像表带本地代理地址、关 WebSocket、`requires_openai_auth = true` 走官方登录）。`selector()` 对该变体返回 `Some(ROUTE_ID)`。
+统一开启时，官方代理与官方直连的新会话都选择 `custom`（共享桶）。统一关闭时保持原官方代理标识。包括普通官方账号和托管账号，不修改第三方既有路由、认证选择、配置档覆盖拒绝和请求分派。
 
-- 退出代理（直连 + unify 开）：现有 `OfficialMirror` 接管 custom 槽，桶连续。
-- 退出代理（直连 + unify 关）：现有 `Official { dormant }` 把 custom 改写为休眠形态，第三方 resume 语义不变。
-- 统一开关关闭 + 代理：维持上游现状（`cc-switch-official`），零回归。
-- 既有 `cc-switch-official` 残表：`write_route` 的 doomed 清理已覆盖（`OFFICIAL_PROXY_ROUTE_ID` 无条件入 doomed），无需新增逻辑。
-- 所有权解耦：接管与否由应用状态（代理模式 + 当前行类别）判定，不再依赖配置里的 id；这正是调查报告 §3 "把所有权信号从桶名分离" 的落点。
+不得修改 `is_codex_live_taken_over`（通用旧接管识别）、`config_has_proxy_placeholder`（静态行污染识别）、控制器主流程、写入引擎、认证模块或迁移算法来承载本切片。不能凭“表形状相同”授权启动覆盖用户配置。
 
-**步 0（已完成，2026-09-28，独立探索 + 独立评审双线核实，结论如下）：**
+### 4.2 任务一：复用共享槽写入
 
-1. **请求分派纯状态驱动，代理侧零改动**：每请求目标 = 模式状态 `ModeState.proxy_route`（存供应商行 id）+ DB 行（`proxy/handler_context.rs:110` → `mode/current.rs:76-92`）；上游地址由 `is_codex_official_provider(行)` 决定（`forwarder.rs:1200-1201`、`providers/codex.rs:952-953` 固定 `CHATGPT_CODEX_BASE_URL`）；认证 passthrough 同为行驱动（`forwarder.rs:57-100,2092-2104`）。`src/proxy/` 全目录对 `cc-switch-official` **零引用**、对 `requires_openai_auth` 零逻辑引用（rg 全量核实）。官方流量以 `model_provider = "custom"` + 镜像表形态过代理，行为与现状逐位相同。请求在 `RequestContext::new` 一次性快照，在途请求沿快照完成，热换路由不中断（`mode/controller.rs:612-629`）。
-2. **`cc-switch-official` id 的全部消费点清单与处置**：
+**修改：** `src-tauri/src/services/provider/codex_direct.rs`（官方代理规划）；`src-tauri/src/live/project/codex.rs`（仅澄清共享槽变体注释）。
 
-| 消费点 | 现状作用 | 新变体下的行为变化 | 处置 |
-| --- | --- | --- | --- |
-| `codex_config.rs:2382-2396 codex_config_has_official_proxy_route`（经 `services/proxy.rs:317-323 is_codex_live_taken_over`） | 按 `model_provider == "cc-switch-official"` 或占位符识别"接管中的 live" | 两分支皆 false → 接管态被判为未接管 | **必须修**：为新形态增加识别（`custom` 槽官方镜像表 + base_url 指向本地代理端口） |
-| `services/provider/live.rs:991` 导入守卫 | 代理接管期 live 不得导入为 SSOT 行 | 守卫漏过该形态；兜底仍挡（镜像表无 Key 走 `keyless_fallback_error`）但报错文案误导 | 随上一项修复自动恢复；顺带核对文案 |
-| `lib.rs:1926` 启动通用配置片段抽取守卫 | 跳过代理契约形态的 live | 旧设备可能从接管态 live 抽片段 | 随识别修复恢复 |
-| `mode/controller.rs:751` 旧版遗留接管检测 | 识别崩溃后文件已写、状态未提交 | 旧版遗留形态仍带 `cc-switch-official`，仍可识别 | 影响极小，补测试断言即可 |
-| `codex_direct.rs:488-495 contract_of` | 代理契约 digest（selector + 表形态） | 非穷尽 match，新变体静默落 `_` 臂，digest 退化 | **必须修**：为新变体显式返回 `(ROUTE_ID, table_text(镜像表))` + 契约内容断言测试 |
+先在规划文件底部新增内联回归测试：统一开启，普通官方及托管官方代理在空配置下生成共享选择器及完整镜像表。确认基线失败于旧代理标识。
 
-3. **残余风险**：Codex CLI 侧"会话按 `model_provider` id 分桶、与表形态（有无 base_url/WS）无关"是仓库代码无法证明的客户端行为，须按 §4.5 实机验证（验证失败则本切片整体重估）。
+官方代理分支保持原认证目标和空认证标记参数，只替换路由表达式：
 
-### 4.3 Alternatives considered
+```rust
+let table = official_mirror_table(Some(base_url), false);
+let route = if crate::settings::unify_codex_session_history() {
+    RouteWrite::Custom(table)
+} else {
+    RouteWrite::OfficialProxy(table)
+};
+```
 
-- **保留 `cc-switch-official` 独立桶，扩迁移源兜底（切片三把接管桶迁入 custom）**——最强理由：零写引擎风险、所有权信号天然清晰、改动只在迁移侧。否定：桶分裂在每次直连↔接管往返中持续产生新混合会话，迁移永远追赶式修复；#5974 的用户可见症状（切换后列表缺一半）不消失；且上游自己的休眠表机制已证明"custom 槽内容可按模式替换、id 固定"是既定架构方向，独立桶与之背道。
-- **unify 关闭时也共享桶**——否定：改变开关关闭时的默认官方路由语义，扩大行为面，违背"开关只管历史分桶"的产品边界。
+保留 `stamp = None`（不执行第三方认证字段调整），不要改成第三方代理的占位符表。无需修改 `contract_of`（契约计算）、首次建表助手或枚举成员。
 
-### 4.4 状态矩阵（验收即断言）
+验证空配置、普通表、内联表、用户无关表与注释保留；活动配置档覆盖仍拒绝；旧代理表沿现有清理及配置档豁免处理。
 
-| 统一开关 | 模式 | 活动桶 | 表形态 | 认证 |
-| --- | --- | --- | --- | --- |
-| 关 | 官方直连 | 无选路（原生 openai） | custom→休眠表（如有） | 官方登录 |
-| 开 | 官方直连 | `custom` | 官方镜像（无 base_url，WS 开） | 官方登录 |
-| 关 | 官方代理 | `cc-switch-official` | 镜像 + 本地代理地址（WS 关） | 官方登录（现状不回归） |
-| 开 | 官方代理 | **`custom`** | **镜像 + 本地代理地址（WS 关）** | 官方登录 |
-| 任意 | 第三方（直连/代理） | `custom` | 第三方表（带 Key） | 行自带凭据 |
+### 4.3 任务二：把保守读入检查与恢复权限分开
 
-补充断言行（评审补入）：新形态下 `is_codex_live_taken_over(Codex) == true`；导入守卫与启动片段抽取在接管态行为与现状一致；`contract_of` 对新变体的 digest 含 selector 与镜像表形态。已知接受项：任何 `[profiles.*]` 显式引用 `cc-switch-official` 时，该残表被 `write_route` 的 profile 豁免保留（`project/codex.rs:699-709` 的 `!referenced` 条件——"无条件入 doomed"不准确，以此为准）；`BuiltIn` / `Default` 路由行与托管账号官方卡不在本矩阵，不受本改动影响。
+**修改：** `src-tauri/src/services/proxy.rs`（独立读入守卫及内联测试）、`src-tauri/src/services/provider/live.rs`（导入入口）、`src-tauri/src/lib.rs`（启动片段抽取入口）。
 
-### 4.5 必测边界
+先写两项负向测试：无模式记录的新镜像配置不能被导入；手工同形配置在已知直连模式下启动后字节不变，且同形数据库行仍可用。扩大旧识别的对照已证实会破坏后两条，不再重走该方案。
 
-官方直连→代理→直连（开关各态组合）；代理中开关切换；代理中官方↔第三方切换；休眠表与镜像表在 custom 槽上的相互改写（含 unify 关切回直连时镜像表被改写为休眠表的形态变化：name `OpenAI`→`custom`、`requires_openai_auth` 移除、加 `PROXY_MANAGED` 占位符）；`cc-switch-official` 残表清理（含被 `[profiles.*]` 引用时的豁免保留）；第三方行全程不被触碰；unify 开 + 代理期间第三方旧会话经代理 resume；迁移门槛在代理模式下可通过（`live_not_unified` 不再误报）；**接管检测四断言**（`is_codex_live_taken_over` / 导入守卫 / 启动片段抽取 / 旧版遗留恢复，见步 0 清单）；`contract_of` 契约内容断言；代理监听地址/端口变更触发 `resync_route` 后镜像表 base_url 重写；代理崩溃恢复；切换瞬间在途请求沿快照完成；代理认证刷新后重投影。每次断言实际选路、端点、认证与休眠表未被回退。
+新增专用于读入的入口，例如 `live_has_proxy_import_risk`（活动配置存在代理导入风险）。其他应用委托原检查。官方客户端返回“原检查命中，或新镜像形状命中”。
 
-### 4.6 触点与测试
+新形状定义：共享选择器；共享表恰有名称、官方认证、双向长连接能力、协议、地址五字段；前四字段等于官方代理镜像；地址为可解析的普通超文本传输地址，有主机、路径为版本一路径，不含用户信息、查询及片段。普通表与内联表都支持。不绑定当前端口，覆盖旧端口、指定网卡、第六版互联网协议地址及远端同形手工地址。保持五字段精确匹配；守卫旁标注与真实生成函数同步，测试调用真实生成函数防止未来形状漂移。
 
-- `services/provider/codex_direct.rs`：`plan()` Proxy 分支加 unify 判定；`RouteWrite` 新变体；**`contract_of` 显式 match 臂**（:488-495，非穷尽 match，编译器不兜底）。
-- `live/project/codex.rs`：`RouteWrite::selector()`、`apply`/`write_route`/`owned_table`（三处穷尽 match，编译器强制覆盖；复用 `put_table`/`official_mirror_table`）。
-- **`src-tauri/src/codex_config.rs`**：`codex_config_has_official_proxy_route`（或其旁路助手）为新形态增加识别——本切片唯一涉及共享文件的功能性修改，该文件被 editor/migration/proxy 多方引用，改动限定为纯新增识别分支、不改既有判定。
-- `lib.rs` / `services/provider/live.rs` / `mode/controller.rs`：随识别修复自动恢复，补行为断言（预期零改动，测试验证）。
-- `services/proxy.rs`：**无需改动**（步 0 已证分派状态驱动，`cc-switch-official` 在 proxy 目录零引用）。
-- 测试：`codex_direct` 单测矩阵（plan/契约）+ `provider_service` 集成（镜像现有 `reapply_codex_official_live_rewrites_only_the_session_routing` 的代理模式版本）+ 接管检测四断言。
+只有导入和片段抽取改用新入口。通用接管检测、静态数据库行检测、启动旧版遗留判断继续使用旧入口。可以对手工同形配置保守拒绝导入，但必须准确说明“无法区分代理投影”，不宣称确定包含占位符，更不能改写它。
+
+保留原错误键，中文文案定为：“当前配置包含代理占位符，或与代理投影形态相同，无法安全导入为供应商。请检查并恢复实际配置后重试。”英文定稿见第四版执行补充第 2.1 节。启动自动片段初始化在该形态下跳过整次抽取（包含安全非路由字段）；抽取函数本身不改，已有片段不删除，发布说明需写清。
+
+不得将这项检查升级为通用所有权判定。修改后的功能触点较第二版增加两个入口，但职责更窄；不要为追求两三个文件而重新耦合恢复权限。
+
+### 4.4 任务三：验证现有生命周期，保持编排不变
+
+在已有测试模块增加行为断言，测试代码允许进入 `mode/controller.rs`（模式控制器），生产逻辑不改。
+
+1. 官方代理关→开→关：经实际设置重应用入口，检查选择器、表和契约变化。
+2. 同契约再次同步：配置字节不变；地址变化时应重写。
+3. 普通官方认证不回退；托管账号认证与标记保持，目标账号变化仍改变契约。
+4. 发布配置后、提交模式前注入失败：现有未完成操作恢复成功，旧识别无需识别共享镜像。
+5. 官方与第三方切换、进入与退出代理，保持既有休眠表及认证规则。
+6. 导入和片段抽取拒绝新投影，但原生共享直连镜像不误拒绝；手工同形配置不被启动恢复或行污染判定误伤。
+
+更新官方重应用函数的旧注释：代理官方分支现在也受统一开关影响。不要修改已有锁的嵌套顺序。
+
+### 4.5 矩阵与交付边界
+
+| 开关 | 模式     | 选择器         | 表及认证                             |
+| ---- | -------- | -------------- | ------------------------------------ |
+| 关   | 官方直连 | 不写，原生官方 | 已有共享表变休眠；官方认证规则不变   |
+| 开   | 官方直连 | 共享桶         | 官方镜像，无代理地址，开启双向长连接 |
+| 关   | 官方代理 | 旧官方代理桶   | 既有镜像及代理地址，关闭双向长连接   |
+| 开   | 官方代理 | 共享桶         | 同一官方代理镜像，官方认证不变       |
+| 任意 | 第三方   | 按上游现有投影 | 不改其规范化、凭据及内置路由例外     |
+
+普通官方和托管官方均覆盖前四行。第三方内置及无路由情况保持现状，不能笼统声称所有第三方都有自带密钥。
+
+已有客户端实测确认列表与合成历史恢复，不把它扩写为所有版本、真实账号发送或热加载均已验证。正式交付仍执行第 9 节。新切片只阻止新增分桶分裂，旧接管历史由独立迁移处理；不得宣称整个历史故障簇已修复。
+
+### 4.5.1 发布阻断与失败窗口
+
+旧代理定义按现有引擎清理后，旧代理会话可能能被全量列表发现却无法恢复，第四版真实客户端升级形态实验已复现。切片二可独立审查，但不得在过渡约束未满足时发布；仅等切片三合并不够。未选择迁移、等待、失败、部分成功、全部成功五种状态都必须按第四版执行补充第 4 节验证，不能强制迁移替代兼容。全局固定别名不采用；有来源证据且限制在官方共享代理状态的旧定义保留，只是独立待验证方向。
+
+真实设置保存需验证已发布失败点、设置回滚、同值保存、单独恢复及完整模式启动。不要把单独恢复后的短暂不一致写成永久失配；不要把设置事务改造混入路由切片。具体测量见第四版证据说明。
+
+### 4.6 不采用的方案
+
+- 新增专用路由变体：现有共享槽已表达所需行为，新增匹配分支没有额外收益。
+- 扩大通用旧接管检测：已实测会覆盖手工配置、拒绝正常供应商行。
+- 只扩迁移源：无法阻止继续产生两个桶，不能替代新会话修复。
+- 给旧桶补固定官方别名：定义存在不代表跟随正确后端；不作为历史迁移替代品。
+- 改请求分派或认证算法：本问题发生在客户端投影与读入边界，代理已按模式与供应商行分派。
+
+### 4.7 提交与验证要求
+
+本切片可作为单一“官方代理保持共享历史路由”修复提交，包含必要读入保护与内联测试。迁移、状态界面、请求兼容各自独立。诊断脚本属于本次调查证据，不应全部混入产品修复合并请求。
+
+建议标题：`fix(codex): keep official proxy sessions in the unified bucket`（官方代理会话保持在统一桶）。正文中英双语：根因链→为何只改投影与读入边界→保持不变的恢复及认证行为→实际验证结果→准确关联议题。未完成存量恢复前，不使用自动关闭整个历史缺失议题的措辞。
+
+先运行新测试确认基线失败，再实现并运行目标模块，最后执行第 8 节全部门槛。格式、静态检查及全量测试失败不能降级为“其他测试通过即可”。
 
 ## 5. 切片三 v2：存量历史迁移（第二版）
 
 沿 v1 §6 主体设计（预检状态机、来源账本、逐会话段执行、失败重试——见下），三处修订：
 
-1. **迁移源纳入 `cc-switch-official`**：切片二落地后，历史接管会话可确认由应用生成（旧版本写死的 id + 官方镜像/代理表形状），符合 v1 §6.1 "来源包含内置官方标识与可确认由应用生成的旧官方接管标识" 的既有约束；不得经第三方迁移白名单。
+1. **迁移源纳入 `cc-switch-official`**：切片二落地后，历史接管会话可确认由应用生成（需在迁移切片定义持久化来源证据；不得依赖当前镜像表存在，因为切片二沿既有规则清理旧表），符合 v1 §6.1 "来源包含内置官方标识与可确认由应用生成的旧官方接管标识" 的既有约束；不得经第三方迁移白名单。
 2. **运行时字段**：`thread_settings_applied` 的 `model_provider_id` 仍会覆盖已迁移的 `session_meta`（调查 §7.1，上游 0.156.1 提取逻辑）。逐行改写需携带会话段状态——现回调是无状态 `Fn`，**必须先用最小夹具证明扩参可行**，不得预设。
 3. **门槛语义更新**：`live_not_unified` 在切片二后主要剩"开关关闭"与"未覆盖的旧版本残留"两种成因；迁移与每应用切换锁的协调（v1 §6.2）照旧。
 
@@ -153,24 +199,32 @@
 
 ## 8. 文件边界与验证命令
 
-| 切片 | 文件 |
-| --- | --- |
-| 二 | `src-tauri/src/services/provider/codex_direct.rs`（plan/RouteWrite 变体/contract_of）；`src-tauri/src/live/project/codex.rs`（selector/apply/write_route/owned_table）；`src-tauri/src/codex_config.rs`（接管形态识别，纯新增分支）；`lib.rs` / `services/provider/live.rs` / `mode/controller.rs`（预期零改动，测试断言） |
-| 三 | `src-tauri/src/codex_history_migration.rs`；`src-tauri/src/codex_state_db.rs` |
-| 四 | `src-tauri/src/settings.rs`；`src-tauri/src/commands/settings.rs`；`src/components/settings/CodexAuthSettings.tsx`；`docs/guides/codex-unified-session-history-guide-{zh,en,ja}.md` |
-| 五 | `src-tauri/src/proxy/forwarder.rs` 及相邻适配 |
+| 切片 | 文件及职责                                                                                                                                                                                                                                                                |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 二   | `src-tauri/src/services/provider/codex_direct.rs`（路由选择和内联测试）；`src-tauri/src/services/proxy.rs`（专用读入守卫和内联测试）；`src-tauri/src/services/provider/live.rs`、`src-tauri/src/lib.rs`（两个读入调用点）；投影及供应商模块仅更新职责注释；控制器仅补测试 |
+| 三   | `src-tauri/src/codex_history_migration.rs`（迁移）；`src-tauri/src/codex_state_db.rs`（权威数据库解析）                                                                                                                                                                   |
+| 四   | 设置、设置命令、设置界面和三语言指南                                                                                                                                                                                                                                      |
+| 五   | 代理请求转发及目标明确的协议适配                                                                                                                                                                                                                                          |
 
-```sh
-export RUSTUP_HOME=/d/cc-switch/.tmp-cluster/rustup-1.95 CARGO_INCREMENTAL=0
-export CARGO_TARGET_DIR=/d/cc-switch/.tmp-cluster/cc-hr-target-v3
-cargo test  --locked -j 2 --manifest-path src-tauri/Cargo.toml --lib -- live::project::codex services::provider::codex_direct codex_history_migration
-cargo test  --locked -j 2 --manifest-path src-tauri/Cargo.toml --test provider_service
-cargo fmt   --manifest-path src-tauri/Cargo.toml --all -- --check
-cargo clippy --locked -j 2 --manifest-path src-tauri/Cargo.toml -- -D warnings   # CI 同款；--all-targets 另有既有 op_ref（transform_codex_chat.rs:4498，勿修，与本簇无关）
-pnpm typecheck && pnpm format:check && pnpm test:unit
+以下为正式业务修复的验证要求，不是本轮文档已全部完成的声明。使用本机命令环境，在仓库根目录执行；库测试过滤器每次只传一个，不能把多个过滤词写成同一条测试命令。
+
+```powershell
+$env:RUSTUP_HOME = 'D:/cc-switch/.tmp-cluster/rustup-1.95'
+$env:CARGO_INCREMENTAL = '0'
+$env:CARGO_TARGET_DIR = 'D:/cc-switch/.tmp-cluster/cc-hr-target-v3'
+cargo test --locked -j 2 --manifest-path src-tauri/Cargo.toml --lib live::project::codex
+cargo test --locked -j 2 --manifest-path src-tauri/Cargo.toml --lib services::provider::codex_direct
+cargo test --locked -j 2 --manifest-path src-tauri/Cargo.toml --lib mode::controller::mode_tests
+cargo test --locked -j 2 --manifest-path src-tauri/Cargo.toml --test provider_service
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo clippy --locked -j 2 --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --locked -j 2 --manifest-path src-tauri/Cargo.toml
+pnpm typecheck
+pnpm format:check
+pnpm test:unit
 ```
 
-本机 `pnpm test:unit` 不稳定（main 与分支失败集合漂移），以 typecheck/format:check 为准，单元套件以 CI 为准。
+每条命令检查退出码后再执行下一条。遇到既有失败时，在相同环境运行固定基线并记录，不去掉全部目标检查、不修改无关模块、不把基线失败写成通过。本轮诊断的环境、范围和结果见技术分析及证据记录。
 
 ## 9. 实机验收（沿 v1 §10，按新引擎更新）
 

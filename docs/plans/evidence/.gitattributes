@@ -1,0 +1,4 @@
+# Evidence hashes describe original bytes, independent of checkout line-ending settings.
+* -text
+# Keep raw command output intact, including trailing blank lines.
+*.log -diff

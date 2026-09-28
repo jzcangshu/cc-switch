@@ -1,0 +1,25 @@
+   Compiling tauri v2.10.3
+   Compiling tauri-plugin-fs v2.4.5
+   Compiling tauri-plugin-dialog v2.6.0
+   Compiling tauri-plugin-deep-link v2.4.7
+   Compiling tauri-plugin-updater v2.10.0
+   Compiling tauri-plugin-process v2.3.1
+   Compiling tauri-plugin-log v2.8.0
+   Compiling tauri-plugin-opener v2.5.3
+   Compiling tauri-plugin-window-state v2.4.1
+   Compiling tauri-plugin-store v2.4.2
+   Compiling cc-switch v3.20.4 (C:\Users\jzcan\.codex\worktrees\unified-proxy-history\cc-switch\src-tauri)
+    Checking tauri-plugin-single-instance v2.4.0
+error: taken reference of right operand
+    --> src\proxy\providers\transform_codex_chat.rs:4498:32
+     |
+4498 |             .is_some_and(|url| url == &data_url)));
+     |                                ^^^^^^^---------
+     |                                       |
+     |                                       help: use the right value directly: `data_url`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#op_ref
+     = note: `-D clippy::op-ref` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::op_ref)]`
+
+error: could not compile `cc-switch` (lib test) due to 1 previous error

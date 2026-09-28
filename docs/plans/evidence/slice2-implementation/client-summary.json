@@ -1,0 +1,20 @@
+[
+  {
+    "name": "client-local-roundtrip",
+    "requests": 1,
+    "provider": "custom",
+    "persistedProvider": "custom",
+    "status": "completed",
+    "error": null,
+    "resumeError": null
+  },
+  {
+    "name": "cli-local-roundtrip",
+    "requests": 1,
+    "provider": "custom",
+    "persistedProvider": "custom",
+    "status": "completed",
+    "error": null,
+    "resumeError": null
+  }
+]

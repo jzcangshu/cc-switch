@@ -1,0 +1,53 @@
+{
+  "baseline": "846de29c13ac4d65f164db8c15dd5fd58e29f972",
+  "finalRun": "rust-v4-run4.log",
+  "result": {
+    "passed": 6,
+    "failed": 0,
+    "filtered": 2917
+  },
+  "files": {
+    "client-proof.cjs": "4ddaa1508f502e9eadc1f19e342a120e19bc0657a11896d802964d578fc57de9",
+    "client-summary.json": "9bd8f1e919e0b610222b88450c6cf80cc940c5c38f7972d74892c8f3ecd94011",
+    "controller-tests.rs": "163f0b2a48a956a4d32935fd2b4b7d8df95e70bbf41b2abd5872758744a55382",
+    "direct-tests.rs": "95a212695cf5b40cfade558655150241211d62d09f030f4dc16ac6bd677560ce",
+    "port-snapshot.json": "8e6e5053568e4a31c2d676925bee63b3c4511b163275ccddc07c869627dddfce",
+    "prepare.cjs": "afedd9c4957ec49562b144ca7222c9bc4723e6c82d0ba7b7d00e1aab3a9b6a05",
+    "README.md": "ad8b0c50bb0ea6a4d178f30bc118f04e5d41d142063ea7c0c0f4c30879a4176e",
+    "rust-v4-run2.log": "3ce08eddf2ac6e0d25e82e68c5d937c705552a67596d60d83582d3f4ef2ad41f",
+    "rust-v4-run3.log": "807f0142464d05229dd8c084eb84cec6feef792b35594e59462f9c68224fca84",
+    "rust-v4-run4.log": "fde42d0209cf3864beed7de0b92fba7db0417627a67d481597a4b687211ef818",
+    "rust-v4.log": "df236cde615a8755394d77aefbfa4ca9e080dff116920e007be0765c9698625a",
+    "stage.cjs": "ee76e3c7707ab76906ac25b04980f268f7d46b3d8397f5825a619baa02b7d074",
+    "summarize-client.cjs": "81cb983e19bc8fb7b343fe0593552dffd39523bba9249d1d39627b69d41256ee",
+    "supplement-tests.rs": "7c55a9f0e4ba829eab5bb56c6b63d47cfb4a1b46376b71836890e894e44e5eb9"
+  },
+  "sources": [
+    {
+      "path": "src-tauri/src/services/provider/codex_direct.rs",
+      "baseline": "1b8bcb1bedfb4c2f65a6cc853ab9edd201513a4ba72790a042734d443c8a9cdb",
+      "candidate": "130d12438e370202150e229b7c87beb00decf12b13e922b1cb79e19fc093948a"
+    },
+    {
+      "path": "src-tauri/src/services/proxy.rs",
+      "baseline": "2ae4576859454872fd3bd2e81f8f1d18b33f61a69206c82e024828463408f643",
+      "candidate": "8319f037bc329c27eae85a71cf74e333a8181927df1c86ebb423008e6dfe28d7"
+    },
+    {
+      "path": "src-tauri/src/services/provider/live.rs",
+      "baseline": "e25a6d2394b95dc65213ca0b1355a7055b4d3c279fa42473cd9a7534e9de6773",
+      "candidate": "d512a600796cb9c255dd81ef9e3b79016ac77d372c895fa6bdf80e992b1f5400"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "baseline": "6c2f0c1aea9fe2a0b156ccb0de97e8652ec7ab702a68867083b57ee5703c1588",
+      "candidate": "41b7d24737567ef7ffbf573cd957068c7ea57e6633089e148cb98905ee34b276"
+    },
+    {
+      "path": "src-tauri/src/mode/controller.rs",
+      "baseline": "5babe54776546ad1ac8625e14c234da21385468ab5bb0c1ff3dbc861e36be24f",
+      "candidate": "01e9d000bab1ea3fbccd6327576dac06860468f75a8856e934e535b860b23685"
+    }
+  ],
+  "note": "Earlier failed runs used earlier test source revisions as explained in README; source hashes describe final run only."
+}

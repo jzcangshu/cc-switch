@@ -1,0 +1,31 @@
+   Compiling cc-switch v3.20.4 (C:\Users\jzcan\.codex\worktrees\slice2-proof\cc-switch\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 15s
+     Running unittests src\lib.rs (D:/cc-switch/.tmp-cluster/cc-hr-target-v3\debug\deps\cc_switch_lib-ce4e2b829b518192.exe)
+
+running 2 tests
+test mode::controller::mode_tests::proof_manual_row_is_not_polluted ... FAILED
+test mode::controller::mode_tests::proof_manual_shape_does_not_authorize_startup_write ... FAILED
+
+failures:
+
+---- mode::controller::mode_tests::proof_manual_row_is_not_polluted stdout ----
+
+thread 'mode::controller::mode_tests::proof_manual_row_is_not_polluted' (16888) panicked at src\mode\controller.rs:4153:9:
+assertion failed: usable_direct(&AppType::Codex, Some(&row)).is_some()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- mode::controller::mode_tests::proof_manual_shape_does_not_authorize_startup_write stdout ----
+
+thread 'mode::controller::mode_tests::proof_manual_shape_does_not_authorize_startup_write' (26500) panicked at src\mode\controller.rs:4147:9:
+assertion `left == right` failed
+  left: "[model_providers.custom]\nname = \"custom\"\nbase_url = \"http://127.0.0.1:15721/v1\"\nwire_api = \"responses\"\nexperimental_bearer_token = \"PROXY_MANAGED\"\n"
+ right: "model_provider = 'custom'\n[model_providers.custom]\nname = 'OpenAI'\nrequires_openai_auth = true\nsupports_websockets = false\nwire_api = 'responses'\nbase_url = 'http://127.0.0.1:15721/v1'\n"
+
+
+failures:
+    mode::controller::mode_tests::proof_manual_row_is_not_polluted
+    mode::controller::mode_tests::proof_manual_shape_does_not_authorize_startup_write
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 2912 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `--lib`

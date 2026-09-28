@@ -1,0 +1,84 @@
+[
+  {
+    "configuration": "shared_direct",
+    "initialize": {
+      "userAgent": "Codex Desktop/0.158.0-alpha.2.1 (Windows 10.0.22631; x86_64) dumb (slice2_proof; 1)",
+      "codexHome": "D:\\cc-switch\\.tmp-cluster\\slice2-v3-proof\\client-fixtures\\shared_direct",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    },
+    "defaultList": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "provider": "custom"
+      }
+    ],
+    "unfilteredCount": 3,
+    "explicitSharedIds": ["11111111-1111-4111-8111-111111111111"],
+    "readProvider": "custom",
+    "resumeProvider": "custom"
+  },
+  {
+    "configuration": "shared_proxy",
+    "initialize": {
+      "userAgent": "Codex Desktop/0.158.0-alpha.2.1 (Windows 10.0.22631; x86_64) dumb (slice2_proof; 1)",
+      "codexHome": "D:\\cc-switch\\.tmp-cluster\\slice2-v3-proof\\client-fixtures\\shared_proxy",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    },
+    "defaultList": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "provider": "custom"
+      }
+    ],
+    "unfilteredCount": 3,
+    "explicitSharedIds": ["11111111-1111-4111-8111-111111111111"],
+    "readProvider": "custom",
+    "resumeProvider": "custom"
+  },
+  {
+    "configuration": "legacy_proxy",
+    "initialize": {
+      "userAgent": "Codex Desktop/0.158.0-alpha.2.1 (Windows 10.0.22631; x86_64) dumb (slice2_proof; 1)",
+      "codexHome": "D:\\cc-switch\\.tmp-cluster\\slice2-v3-proof\\client-fixtures\\legacy_proxy",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    },
+    "defaultList": [
+      {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "provider": "cc-switch-official"
+      }
+    ],
+    "unfilteredCount": 3,
+    "explicitSharedIds": ["11111111-1111-4111-8111-111111111111"],
+    "readProvider": "custom",
+    "resumeError": {
+      "code": -32600,
+      "message": "failed to load configuration: Model provider `custom` not found"
+    }
+  },
+  {
+    "configuration": "native",
+    "initialize": {
+      "userAgent": "Codex Desktop/0.158.0-alpha.2.1 (Windows 10.0.22631; x86_64) dumb (slice2_proof; 1)",
+      "codexHome": "D:\\cc-switch\\.tmp-cluster\\slice2-v3-proof\\client-fixtures\\native",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    },
+    "defaultList": [
+      {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "provider": "openai"
+      }
+    ],
+    "unfilteredCount": 3,
+    "explicitSharedIds": ["11111111-1111-4111-8111-111111111111"],
+    "readProvider": "custom",
+    "resumeError": {
+      "code": -32600,
+      "message": "failed to load configuration: Model provider `custom` not found"
+    }
+  }
+]

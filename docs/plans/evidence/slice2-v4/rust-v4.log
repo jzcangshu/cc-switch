@@ -1,0 +1,48 @@
+   Compiling tauri v2.10.3
+   Compiling tauri-plugin-fs v2.4.5
+   Compiling tauri-plugin-dialog v2.6.0
+   Compiling tauri-plugin-opener v2.5.3
+   Compiling tauri-plugin-log v2.8.0
+   Compiling tauri-plugin-deep-link v2.4.7
+   Compiling tauri-plugin-updater v2.10.0
+   Compiling tauri-plugin-window-state v2.4.1
+   Compiling tauri-plugin-process v2.3.1
+   Compiling tauri-plugin-store v2.4.2
+   Compiling cc-switch v3.20.4 (C:\Users\jzcan\.codex\worktrees\slice2-proof\cc-switch\src-tauri)
+   Compiling tauri-plugin-single-instance v2.4.0
+error[E0603]: module `settings` is private
+    --> src\mode\controller.rs:4427:39
+     |
+4427 |         let result = crate::commands::settings::save_settings(app.state(), requested).await;
+     |                                       ^^^^^^^^ private module
+     |
+note: the module `settings` is defined here
+    --> src\commands\mod.rs:27:1
+     |
+  27 | mod settings;
+     | ^^^^^^^^^^^^^
+help: consider importing this function through its public re-export instead
+     |
+4427 -         let result = crate::commands::settings::save_settings(app.state(), requested).await;
+4427 +         let result = crate::save_settings(app.state(), requested).await;
+     |
+
+error[E0603]: module `settings` is private
+    --> src\mode\controller.rs:4435:26
+     |
+4435 |         crate::commands::settings::save_settings(app.state(),crate::settings::get_settings()).await.unwrap();
+     |                          ^^^^^^^^ private module
+     |
+note: the module `settings` is defined here
+    --> src\commands\mod.rs:27:1
+     |
+  27 | mod settings;
+     | ^^^^^^^^^^^^^
+help: consider importing this function through its public re-export instead
+     |
+4435 -         crate::commands::settings::save_settings(app.state(),crate::settings::get_settings()).await.unwrap();
+4435 +         crate::save_settings(app.state(),crate::settings::get_settings()).await.unwrap();
+     |
+
+For more information about this error, try `rustc --explain E0603`.
+error: could not compile `cc-switch` (lib test) due to 2 previous errors

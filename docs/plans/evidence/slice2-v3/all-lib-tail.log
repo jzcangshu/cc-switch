@@ -1,0 +1,19 @@
+test tray::tests::worst_emoji_reflects_highest_utilization ... ok
+test usage_script::tests::infinite_loop_usage_script_is_interrupted_before_blocking_the_backend ... ok
+test usage_script::tests::test_custom_template_allows_http_lan_request_with_different_base_url ... ok
+test usage_script::tests::test_https_bypass_prevention ... ok
+test usage_script::tests::test_port_comparison ... ok
+
+failures:
+
+---- services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active stdout ----
+
+thread 'services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active' (36532) panicked at src\services\provider\mod.rs:2210:14:
+start proxy service: "启动代理服务器失败: 地址绑定失败: 通常每个套接字地址(协议/网络地址/端口)只允许使用一次。 (os error 10048)"
+
+
+failures:
+    services::provider::tests::update_current_claude_desktop_provider_syncs_profile_when_proxy_takeover_is_active
+
+test result: FAILED. 2905 passed; 1 failed; 10 ignored; 0 measured; 1 filtered out; finished in 41.89s
+

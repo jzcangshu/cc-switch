@@ -1,0 +1,34 @@
+{
+  "baseline": "846de29c13ac4d65f164db8c15dd5fd58e29f972",
+  "commit": "2049cf45db086467b5d8c4afa6f4416ac96402ac",
+  "rawLogRoot": "D:/cc-switch/.tmp-cluster/slice2-implementation",
+  "rawLogSha256": {
+    "baseline-exits.json": "8701f8b461400a432726eb9974552b79c88d8e110ba3febd036952c57a99f18e",
+    "baseline-tests.log": "92e61f312cb0bec534fb752fb3b5cf93088c6b49702988220f9b4f318e460bc6",
+    "candidate-tests.log": "ec72370d9e7e2d2acadbc42c95ba8fc28071359229e00fe2ab73d204f573c42f",
+    "clippy-baseline.log": "7705ed6c64f1e61067847be243fbd9cc8a88c2d6ee002ca4680b408e83c69575",
+    "clippy.log": "eb018e327cd42b5f1b49e726f27b3c0d7b00e8028ea12cbe8dd618a8dc5b2326",
+    "frontend-baseline.log": "6b3bf17c22fee363d62348b5f8e3a116034488e1b9bad2ace733bf0a6302f707",
+    "frontend-candidate-targeted.log": "e96b5a62f03076acd0c2d4a5b25a9050ff9e867e66b455a5d80edd961529ec94",
+    "frontend-format.log": "1fbf181c5e114c20c6bdab31d646d66f84eac32b61fdb16987660c01c4b307b2",
+    "frontend-tests.log": "eb780d5f473d93f50b01ab9fc25dee96c2bafe1d402442e3d4f5c88468e268b7",
+    "full-rust-all-targets.log": "1f60c5aeff78773db752753f2577745a7d4616082491a29a7b9ef50918d33139",
+    "full-rust.log": "7dfe1d84d3f5b46525ffd5da151a56ee394f5297d489a3c3e0f7b992010b6587",
+    "pnpm-install.log": "eb9953ddfb51ad75815d0fa5908e019ac438bf4327a294c792af56860fcf26bc",
+    "port-baseline.log": "7fc941112e9f0ac62854bdfc49150c1faf5ad19b46728f87fd22e176a0ef8903",
+    "rust-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.log": "75d2b43d84b131ce7cd510153df46d106506efdb5d590c1f3bf2f34787f35370"
+  },
+  "backend": {
+    "passed": 3079,
+    "failed": 1,
+    "ignored": 10,
+    "integrationPassed": 174
+  },
+  "frontend": {
+    "passed": 1654,
+    "failed": 5,
+    "baselineTargetedPassed": 56,
+    "candidateTargetedPassed": 56
+  }
+}

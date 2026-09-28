@@ -1,0 +1,6 @@
+
+> cc-switch@3.20.4 format:check C:\Users\jzcan\.codex\worktrees\unified-proxy-history\cc-switch
+> prettier --check "src/**/*.{js,jsx,ts,tsx,css,json}"
+
+Checking formatting...
+All matched files use Prettier code style!

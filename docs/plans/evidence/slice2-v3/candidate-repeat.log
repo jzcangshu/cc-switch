@@ -1,0 +1,17 @@
+
+running 12 tests
+test mode::controller::mode_tests::proof_import_guard_requirement_without_mode_state ... ok
+test mode::controller::mode_tests::proof_import_shape_matrix_and_native_control ... ok
+test mode::controller::mode_tests::proof_managed_account_auth_and_marker_survive_projection_change ... ok
+test mode::controller::mode_tests::proof_manual_row_is_not_polluted ... ok
+test mode::controller::mode_tests::proof_manual_shape_does_not_authorize_startup_write ... ok
+test mode::controller::mode_tests::proof_new_pending_recovers_without_shape_detection ... ok
+test mode::controller::mode_tests::proof_real_resync_keeps_native_auth_and_switches_bucket ... ok
+test mode::controller::mode_tests::proof_snippet_guard_and_extractor_are_distinct ... ok
+test services::provider::codex_direct::slice2_proof::proof_contract_changes_selector_endpoint_and_account_not_token ... ok
+test services::provider::codex_direct::slice2_proof::proof_profile_refusal_and_legacy_cleanup_are_preserved ... ok
+test services::provider::codex_direct::slice2_proof::proof_reuse_custom_covers_empty_inline_and_preservation ... ok
+test services::provider::codex_direct::slice2_proof::proof_shared_bucket_requirement ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 2905 filtered out; finished in 0.46s
+
