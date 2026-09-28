@@ -1,6 +1,6 @@
 # Codex（编程助手）统一会话历史 Implementation Plan（实施计划）
 
-> **For Claude（供后续执行者）：** 使用 executing-plans（按计划执行）技能逐项实施。切片一已于 2026-09-28 落地并通过验证（见 §4.5 实施记录），切片二至五尚未开始。
+> **For Claude（供后续执行者）：** 使用 executing-plans（按计划执行）技能逐项实施。**2026-09-28 晚间上游合入 Codex 写引擎重构（22 提交），切片一的载体被结构性取代，PR #7728 已关闭（superseded）**；逐项核查结论与切片路线 v2 见 §11，本文 §3-§9 中涉及的旧函数名（`inject_codex_unified_session_bucket`、`restore_live_settings_for_provider_backfill`、common-config 片段等）在 main 上已不存在，仅作历史设计依据保留。
 
 **Goal（目标）：** 在不改变第三方手工路由、认证权威来源和官方历史迁移选择的前提下，修复统一历史的配置投影、接管分桶与历史状态一致性；跨后端请求兼容只作为后续可独立审查的能力，首个修复不扩大为通用重放承诺。
 
@@ -342,3 +342,42 @@ pnpm test:unit
 5. 请求兼容另做同后端对照、跨后端工具往返、旧模型、合法密文、无法展开的引用和压缩状态；普通直连不列为代理能力已验证。
 
 每个合并请求只声明其真正覆盖的议题与状态。例如修复显式官方注入后，可关联 #6340，但不能因此同时关闭 #5974、#4710 与 #7257。最终描述依次说明根因、选择此边界的理由、保持不变的行为、实际验证及未验证限制。
+
+---
+
+## 11. 上游写引擎重构影响评估与切片路线 v2（2026-09-28 晚）
+
+切片一 PR #7728 创建约 5 小时后，upstream 合入 22 个提交的 Codex 写引擎重构，PR 已关闭（superseded）。本节基于 `origin/main`（`846de29c`）逐项核查原问题清单的存亡，是后续切片的唯一起点。
+
+### 11.1 新架构要点
+
+- 路由判定**按供应商类别**（`is_official`）而非解析行文本；`live/project/codex.rs` 的 `CodexProjection` 在写入时生成路由与关键字段。
+- 写引擎只替换自己拥有的字段（`ROW_TOP_FIELDS`、`CODEX_EXCLUSIVE_TOP`、路由槽）；**用户自己的 provider 表、MCP、`[projects]`、注释字节级保留**；retired/占位/代理残留表按归属证据清理，被 profile 引用的表不动。
+- 统一历史 = `RouteWrite::OfficialMirror`（官方直连 + 开关开启：选路 `custom` + 官方镜像表）；关闭时 `RouteWrite::Official { dormant_base_url }` 把既有 custom 表改写成休眠形态（本地代理地址 + 占位 Key），保第三方旧会话 resume。
+- 官方代理路由 = `RouteWrite::OfficialProxy` → 选路 **`cc-switch-official`**（`OFFICIAL_PROXY_ROUTE_ID`）。
+- 快照式回填（`restore_live_settings_for_provider_backfill`、common-config 片段剥离）**整体删除**；行纯净由"行内路由表不参与投影 + live 从不回写行"保证（08a80b90、b0875f4c）。
+- profile 覆盖选路在写入前校验并拒绝（`check_effective_route`），原生覆盖原计划 4.1 第 10 行。
+
+### 11.2 逐项核查结论
+
+| 原问题 | 新引擎下的状态 | 证据（main） |
+| --- | --- | --- |
+| #6340 显式官方路由注入被拒 → 迁移永不执行 | **结构性修复**。官方行按类别判 `Route::Official`，行文本不参与路由判定；Mirror 写 `custom` + 镜像表，迁移门槛满足；集成测试覆盖开关往返 | `project/codex.rs:185`、`codex_direct.rs:371`、`provider_service.rs reapply_codex_official_live_rewrites_only_the_session_routing` |
+| 旧式官方中转 `openai_base_url`（原计划 4.1 行 9：保持原路由并报告） | **语义变化（需与维护者确认）**。该键不属于引擎拥有的字段：fresh 官方行的中转在切换时即不投影（与开关无关）；live 已有的该键在 unify 开时保留但惰性（custom 路由不读它），关时恢复生效。无"拒绝统一/报告原因"路径 | `floor.rs:145`、`project/codex.rs:49`、`row_facts` 仅记作 retired 线索 |
+| 第三方手工路由不被统一开关改写（硬约束 1） | **保持**。非官方行路由由行文本解析（显式第三方选择器→其表；选择器无表→报错），unify 仅作用于 `Route::Official` 分支 | `third_party_route` |
+| 行纯净 / 回填污染（切片一逆操作的存在理由） | **结构性消失**。live 从不回写行、行内路由表不投影；快照回填机制已删除 | 08a80b90、b0875f4c、`live.rs` 3553→1618 行 |
+| 三个 review 发现（父表误删 / 内联半回退 / 非字符串选择器镜像） | **全部失的**。`with_original` 与 `inject_*` 不存在；main 的防御性 strip 为原始版本（`as_table` 检测、父表仅清空后删）；其"选择器无条件删除"缺口仍在，但行内不应再有投影，残留影响≈0，不建议单独修 | `codex_config.rs:2416-2465` |
+| 接管分桶分裂（切片二 / 调查根因二） | **仍然存在且更明确**。`OfficialProxy` 显式选路 `cc-switch-official`，`plan()` 的 Proxy 分支不读统一开关：unify 开 + 官方接管，新会话进 `cc-switch-official` 桶，与直连的 `custom` 桶分裂 | `project/codex.rs:440-443,457`、`codex_direct.rs:385-397` |
+| 接管历史不在官方迁移源（调查根因四 7.2） | **仍然存在**。迁移源仍仅内建 `openai` 桶，`cc-switch-official` 会话不可迁移 | `migration.rs:46,190` |
+| 运行时字段遗漏（调查根因四 7.1，`thread_settings_applied`） | **原样保留**。逐行改写仍只处理 `session_meta`，回调仍为无状态 `Fn` | `migration.rs:491-497,1017-1022` |
+| 一次性完成标记 / 备份账本 / 失败重试（调查根因四 7.3-7.5） | 未变（v1 标记与备份代际机制原样） | `migration.rs:29,217,318` |
+| 状态界面（切片四）/ 请求兼容（切片五） | 未变 | — |
+| 新观察 ①：第三方行任意 id 一律规范化为 `custom`（"Rows that use another id… normalized on the way out"） | 行为变化：旧 id 的表按 retired 清理，旧 id 标签的历史会话在默认过滤下不可见；休眠表只保 resume 能力不改会话标签。与 #7487 的语义关系需与维护者确认 | `third_party_route`、`row_facts`、`write_route` 的 doomed 逻辑 |
+| 新观察 ②：`profile` 覆盖选路 | 已由 `check_effective_route` 原生拒绝并指出键名（原计划 4.1 行 10 的"不宣称已统一"升级为写入前报错） | `project/codex.rs:858` |
+
+### 11.3 切片路线 v2
+
+1. **切片二 v2（接管共享桶）**：改动点从旧 `apply_codex_unified_session_bucket_to_settings` 变为 `codex_direct.rs plan()` 的 Proxy 分支与 `RouteWrite::OfficialProxy` 的 selector 决策——unify 开时官方代理路由应落 `custom`（镜像表带本地代理 base_url，即 `official_mirror_table(Some(base_url), false)`），接管所有权与桶名解耦（调查根因二的老药方，药引换了）。`Route::Official { dormant }` 的休眠表是可借鉴的既有模式；必须覆盖"代理运行中开关切换"与"接管↔直连往返"两侧的 live 投影一致性。
+2. **切片三 v2（存量迁移 v2）**：迁移源纳入 `cc-switch-official`（以切片二 v2 的桶决策为准）；`thread_settings_applied` 运行时字段仍需逐段改写（无状态 `Fn` 回调的扩参问题沿用原计划 6.3 的夹具先行要求）；v1 标记兼容与失败重试沿用原计划。
+3. **切片四/五**：不变，但 UI 状态需消费新引擎的真实路由事实（`CodexConfigPatch`/`RouteWrite` 结果），不再是旧回填状态。
+4. **待维护者确认项**（不自行实现）：`openai_base_url` 官方中转静默失效、第三方 id 规范化对历史可见性的影响。
