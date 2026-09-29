@@ -1,6 +1,6 @@
 # 切片 2.5 实施计划 v2：旧官方代理路由定义的保留（解除发布阻断 1）
 
-> **状态（2026-09-29）：proposed（v2，已吸收独立评审五项修正），待复审。** 针对 PR #7743（候选 `2049cf45`）的发布阻断 1——作者自动审查 P1、PR 正文 ⛔ 第 1 条、真实数据测试评论（issuecomment-5882801136 第 4 点）共同确认的升级过渡回归。
+> **状态（2026-09-29）：proposed（v3，已吸收两轮独立评审），待实施。** v2 吸收五项修正；v3 吸收深度评审：新增测试 15（无中生有防护）、16（编辑器保存），内联形态并入 #6/#7，发布说明补直连失败模式，函数名/文件名/代码片段勘误。深度评审结论：无 P1，计划可实施。 针对 PR #7743（候选 `2049cf45`）的发布阻断 1——作者自动审查 P1、PR 正文 ⛔ 第 1 条、真实数据测试评论（issuecomment-5882801136 第 4 点）共同确认的升级过渡回归。
 > 业务基线：`846de29c`；候选：`2049cf45`（本计划在其之上叠加）。升级回归链路、客户端实证见 v4 执行补充 §4 与第三版技术分析 §5。
 > **v2 修订记录**：①保留判定从"形状识别"改为"id 管理权限 + 内容规范化"（修残余回归：用户改名等显示字段编辑不再导致旧表被删）；②修正认证约定自相矛盾（孪生保留 `requires_openai_auth = true`，只是不含任何凭据字段）；③地址跟随承诺按真实触发路径收窄；④撤回"孪生自动触发导入守卫"的错误论断，改为有意不扩大守卫；⑤撤回对已丢失定义无效的手动恢复配方，改写前提。
 
@@ -61,12 +61,12 @@ if let Some(url) = &self.maintain_official_proxy_route {
         && providers.contains_key(OFFICIAL_PROXY_ROUTE_ID)
         && !referenced.iter().any(|name| name == OFFICIAL_PROXY_ROUTE_ID)
     {
-        put_table(providers, OFFICIAL_PROXY_ROUTE_ID, official_mirror_table(Some(url), false), container_inline);
+        put_table(providers, OFFICIAL_PROXY_ROUTE_ID, official_mirror_table(Some(url.as_str()), false), container_inline);
     }
 }
 ```
 
-要点：**规范化 = 用标准休眠镜像整体替换该槽内容**——不保留原内容（改名、用户追加键一并归一；base 的处置是整表删除，本方案严格更小破坏）；**绝不无中生有**（`owned_table` 无容器分支不变，没有该表就不会出现）；`OfficialProxy` 活跃写后跳过（等值避免双写）；被 profile 引用时跳过（`profile_selectors` 在 `write_route` 开头 :664 读取，先于本分支，作用域可达）。孪生内容 = `official_mirror_table(Some(url), false)`：**保留 `requires_openai_auth = true`（官方镜像认证要求，v2 修正 ②）**，不含任何 bearer/占位凭据字段——因此也不含 `PROXY_TOKEN_PLACEHOLDER`，`codex_live_has_proxy_placeholder` 不命中，v3 §3.2 启动误检与 v2 反例均不回归（启动编排零改动）。
+要点：**规范化 = 用标准休眠镜像整体替换该槽内容**——不保留原内容（改名、用户追加键一并归一；base 的处置是整表删除，本方案严格更小破坏）；**绝不无中生有**（`owned_table` 无容器分支不变，没有该表就不会出现）；`OfficialProxy` 活跃写后跳过（等值避免双写）；被 profile 引用时跳过（`profile_selectors` 在 `write_route` 开头 :664 读取，先于本分支，作用域可达；被 profile 钉死旧 id 的孪生地址将长期不刷新——`check_effective_route` 也会拒绝 selector 不符的写入，这是既有 profile 语义的自然结果，实现注释点明即可）。孪生内容 = `official_mirror_table(Some(url), false)`：**保留 `requires_openai_auth = true`（官方镜像认证要求，v2 修正 ②）**，不含任何 bearer/占位凭据字段——因此也不含 `PROXY_TOKEN_PLACEHOLDER`，`codex_live_has_proxy_placeholder` 不命中，v3 §3.2 启动误检与 v2 反例均不回归（启动编排零改动）。
 
 ### 3.2 `services/provider/codex_direct.rs`
 
@@ -76,7 +76,7 @@ if let Some(url) = &self.maintain_official_proxy_route {
 
 ### 3.3 守卫零改动（v2 修正 ④）
 
-导入守卫（`codex_has_mirror_proxy_mirror_shape` → `live_has_proxy_import_risk`）只检查共享槽活动路由（selector=`custom` + `model_providers.custom`），**不遍历其他表**。孪生（未选中的旧定义）**不触发**导入拒绝或片段跳过——这是有意行为：不为一张永久休眠表扩大守卫去拒绝正常直连配置；片段抽取器本就整体移除 `model_providers`，孪生无泄漏路径。活动路由命中既有条件（代理镜像形状/占位符）时照旧拒绝。v1 的"共享形状函数"重构随之取消，v4 §2.2 的同步维护约定继续由注释 + 生成形状测试承担。
+导入守卫（`codex_has_mirror_proxy_shape` → `live_has_proxy_import_risk`）只检查共享槽活动路由（selector=`custom` + `model_providers.custom`），**不遍历其他表**。孪生（未选中的旧定义）**不触发**导入拒绝或片段跳过——这是有意行为：不为一张永久休眠表扩大守卫去拒绝正常直连配置；片段抽取器本就整体移除 `model_providers`，孪生无泄漏路径。活动路由命中既有条件（代理镜像形状/占位符）时照旧拒绝。v1 的"共享形状函数"重构随之取消，v4 §2.2 的同步维护约定继续由注释 + 生成形状测试承担。
 
 ## 4. 不变量
 
@@ -96,19 +96,21 @@ if let Some(url) = &self.maintain_official_proxy_route {
 | 3 | 退出代理 | 统一开+代理 → 退出 → custom=直连镜像且孪生保留 | `controller` 内联 |
 | 4 | 切第三方 | 官方→第三方→官方往返，孪生全程保留，令牌互不混入 | `controller` 内联（扩既有往返测试） |
 | 5 | 关统一 | unify off + 代理 → 槽位回到活跃 `OfficialProxy` 表，旧桶会话恢复/发送回到候选前行为；该路径重建已被删除的定义 | `codex_direct` plan 形状 + `controller` 表内容 |
-| 6 | 备份恢复 | 含旧契约（含改名/追加键变体）的 pre-write → 投影后规范化保留 | `codex_direct` 内联 render+apply |
+| 6 | 备份恢复 | 含旧契约（含改名/追加键变体、标准表与内联表两种容器形态）的 pre-write → 投影后规范化保留 | `codex_direct` 内联 render+apply |
 
 回归与边界：
 
 | # | 断言 | 位置 |
 | --- | --- | --- |
-| 7 | 改名/追加键/未知内容的同名表 → 规范化为标准休眠镜像（不再删除） | `codex_direct` 内联 |
+| 7 | 改名/追加键/未知内容的同名表（含内联形态）→ 规范化为标准休眠镜像（不再删除） | `codex_direct` 内联 |
 | 8 | profile 引用豁免：既不清也不被维护写覆盖 | `codex_direct` 内联 |
 | 9 | 契约摘要不含孪生与新字段；同契约不触发写入 | `codex_direct` 内联 |
 | 10 | 启动无误检：孪生存在 + live-state=direct → startup 字节不变 | `controller` 内联 |
 | 11 | 守卫边界：仅存在孪生（活动路由为直连镜像/第三方表）时导入**不**拒绝；活动路由命中既有条件时拒绝 | `proxy`/`controller` 内联 |
 | 12 | 发布失败注入：补丁原子发布，失败后孪生与主表状态一致（回滚/前滚不产生半张孪生） | `controller` 内联（扩既有保存回滚测试） |
 | 13 | 切片二既有 12 项 + 模块回归全绿 | 全量门 |
+| 15 | **无中生有防护**（深度评审 P2-1）：maintain=Some 且 live 无该表——无 `model_providers` 容器、有容器但无该表两种输入 → apply 后输出不含 `cc-switch-official`。这是本切片区别于"全局固定别名"的唯一边界，必须有回归锁定 | `codex_direct` 内联 |
+| 16 | 编辑器交互（深度评审 P3-5）：不触碰孪生的编辑器保存不产生孪生字节变化；用户在编辑器删除孪生后保存 → 真实移除且不被重建 | `codex_editor` 相关内联 |
 | 14 | 客户端级：合成旧桶会话 + 投影后双表配置 → `thread/resume` 成功；恢复后发送走"跟随当前"路径 | 交付前实机门槛（resume-check 方法），不入产品测试 |
 
 ## 6. 边界与诚实声明
@@ -130,4 +132,5 @@ if let Some(url) = &self.maintain_official_proxy_route {
 - 单提交追加到 PR #7743：`fix(codex): keep the legacy official proxy route definition resumable`。PR 正文 ⛔ 第 1 条更新为"升级保留已实现，待客户端级验收"；机器人 P1 回复引用本计划 v2。
 - 规模：生产代码约 35-40 行（2 文件）+ 测试约 150 行；守卫文件零改动。
 - 验证命令沿用总计划 §8（1.95 工具链、`-j 2`、`CARGO_INCREMENTAL=0`）；格式/clippy(--lib)/全量库测试按既有门槛，基线失败对照沿用已记录清单。
+- 发布说明必须包含（深度评审 P2-3）：直连且代理未运行时，旧会话可恢复但发送需重新进入代理；代理因其他应用存活时，恢复会话的发送按当前模式路由。
 - 交付前实机门槛：§5.14 客户端恢复/发送验证 + 官方发送验收（需用户重登 ChatGPT 与可用网络出口）。
