@@ -9,7 +9,7 @@
 1. base：统一开关只影响直连分支；代理官方分支固定写 `RouteWrite::OfficialProxy`（选路 `cc-switch-official`），且该臂对既有表**无条件 `put_table` 覆盖**（`write_route:747-760`）——base 对这个 id 的任何内容都是"清掉重写"，具备自愈性。
 2. 升级候选后首次启动：`write_proxy` `force = op_name == op::ATTACH`（`mode/controller.rs:193`）强制 plan/run；官方代理分支按统一开关改写 `RouteWrite::Custom(official_mirror_table(...))`（`codex_direct.rs:402-405`）。
 3. `write_route` doomed 清扫（`codex.rs:699-712`）按 id 删除未被 profile 引用的 `cc-switch-official` 表；新 Custom 分支只写共享槽、不补旧 id → 旧桶会话失去唯一定义 → `Model provider 'cc-switch-official' not found`。
-4. 迁移不兜底：官方迁移源仅内建 `openai`（`migration.rs:46,237`）；第三方白名单（:50）不含该 id。
+4. 迁移不兜底：官方迁移源仅内建 `openai`（`src-tauri/src/codex_history_migration.rs:46,237`，注意与 `database/migration.rs` 区分）；第三方白名单（:50）不含该 id。
 
 实证：本机 9 个旧桶会话（归档区）在候选之前即因 base 既有清理规则断链（同款报错）；v4 §4.1 合成实验复现升级时点。清理规则是上游既有架构；本切片解决**升级时点的触发**，并为存量设备保留恢复凭据的窗口（§6）。
 
