@@ -2,6 +2,12 @@ import type { ReactNode } from "react";
 import { Switch } from "@/components/ui/switch";
 import { HelpTip } from "@/components/ui/help-tip";
 import { cn } from "@/lib/utils";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 
 /**
  * 设置页的版式（v7）：分节标题 15/600 → 带边框的卡片 → 一行一项，左边名称、右边控件。
@@ -13,6 +19,8 @@ export function SettingsBlock({
   actions,
   children,
   className,
+  collapsible = false,
+  initiallyOpen = false,
 }: {
   id?: string;
   title?: ReactNode;
@@ -22,7 +30,35 @@ export function SettingsBlock({
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  collapsible?: boolean;
+  initiallyOpen?: boolean;
 }) {
+  if (collapsible) {
+    return (
+      <Accordion
+        type="single"
+        collapsible
+        defaultValue={initiallyOpen ? "content" : undefined}
+        className={className}
+      >
+        <AccordionItem
+          value="content"
+          className="rounded-xl border border-border px-4 glass-card"
+        >
+          <AccordionTrigger className="py-4 text-sm font-medium hover:no-underline">
+            {title}
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pb-4">
+            {help && (
+              <p className="text-xs text-muted-foreground">{help.body}</p>
+            )}
+            {actions && <div className="flex justify-end gap-2">{actions}</div>}
+            {children}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    );
+  }
   return (
     <section id={id} className={cn("space-y-3", className)}>
       {(title || actions) && (
@@ -50,7 +86,7 @@ export function SettingsCard({
   return (
     <div
       className={cn(
-        "divide-y divide-border overflow-hidden rounded-panel border border-border bg-surface",
+        "divide-y divide-border overflow-hidden rounded-xl glass-card shadow-sm",
         className,
       )}
     >
@@ -142,8 +178,6 @@ export function SettingsSwitchRow({
 /** 设置页正文：最大宽度 760，左右 24 的内边距，分节间距 28。 */
 export function SettingsBody({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-[760px] space-y-7 px-6 pb-10 pt-6">
-      {children}
-    </div>
+    <div className="mx-auto w-full space-y-6 px-6 pb-10 pt-4">{children}</div>
   );
 }

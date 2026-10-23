@@ -616,7 +616,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
         closeLabel={t("common.back")}
         aria-describedby={undefined}
       >
-        <SheetBody className="flex flex-col gap-5 px-6 pb-6 pt-5">
+        <SheetBody className="m-6 flex flex-col gap-6 rounded-xl glass border border-white/10 p-6">
           {!isEdit && (
             <>
               <div className="flex flex-col gap-2">

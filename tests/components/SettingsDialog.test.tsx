@@ -217,6 +217,11 @@ describe("SettingsPage", () => {
         name: "settings.sections.network",
       }),
     ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.advanced.globalProxy.title",
+      }),
+    );
     expect(screen.getByText("global-proxy-settings")).toBeInTheDocument();
   });
 
@@ -270,7 +275,14 @@ describe("SettingsPage", () => {
 
   it("wires import, export and sync into the data section", () => {
     renderSettingsPage({ section: "data" });
-
+    for (const name of [
+      "settings.advanced.data.title",
+      "settings.advanced.cloudSync.title",
+      "settings.advanced.backup.title",
+      "settings.advanced.logConfig.title",
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
     fireEvent.click(screen.getByRole("button", { name: /settings\.import/ }));
     expect(importExportMock.importConfig).toHaveBeenCalled();
     fireEvent.click(
@@ -299,10 +311,8 @@ describe("SettingsPage", () => {
     const { rerenderWith } = renderSettingsPage({ section: "appConfig" });
 
     expect(screen.getByText("codex-auth-settings")).toBeInTheDocument();
-    // 没改过目录：没有保存按钮
-    expect(
-      screen.queryByRole("button", { name: "common.save" }),
-    ).not.toBeInTheDocument();
+    // 第三版底部保存常驻，未改过时不可提交。
+    expect(screen.getByRole("button", { name: "common.save" })).toBeDisabled();
 
     fireEvent.click(
       screen.getAllByRole("button", { name: "settings.browseDirectory" })[0],

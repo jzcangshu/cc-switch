@@ -1,7 +1,15 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useDelayedFlag } from "@/hooks/useDelayedFlag";
 import { useTranslation } from "react-i18next";
-import { Download, MoreHorizontal, Pencil, Plus, Server } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Server,
+  Trash2,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/ui/help-tip";
@@ -764,11 +772,11 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
           ) : (
             <div
               data-testid="mcp-matrix"
-              className="min-h-0 overflow-auto scroll-stable rounded-panel border border-border bg-surface"
+              className="min-h-0 overflow-auto scroll-stable rounded-xl border border-border"
             >
               <MatrixColumnHighlight>
                 <div className="min-w-[560px]">
-                  <div className="sticky top-0 z-10 flex h-11 items-center border-b border-border bg-subtle pe-2 ps-4">
+                  <div className="sticky top-0 z-10 flex h-11 items-center border-b border-border bg-muted pe-2 ps-4">
                     <span className="min-w-0 flex-1 text-caption font-semibold text-fg-2">
                       {t("mcpPage.columnName")}
                     </span>
@@ -801,7 +809,7 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                         );
                       })}
                     </div>
-                    <span aria-hidden="true" className="w-16 shrink-0" />
+                    <span aria-hidden="true" className="w-24 shrink-0" />
                   </div>
 
                   {filteredServerEntries.length === 0 ? (
@@ -821,9 +829,9 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                   ) : (
                     <ul
                       aria-label={t("mcpPage.listLabel")}
-                      className="m-0 list-none p-0"
+                      className="m-0 list-none divide-y divide-border p-0"
                     >
-                      {filteredServerEntries.map(([id, server], index) => {
+                      {filteredServerEntries.map(([id, server]) => {
                         const enabled = MCP_APP_IDS.some(
                           (app) => server.apps[app],
                         );
@@ -844,8 +852,7 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                             key={id}
                             onClick={() => openEdit(id)}
                             className={cn(
-                              "flex h-14 cursor-pointer items-center pe-2 ps-4 transition-colors duration-150 hover:bg-subtle",
-                              index > 0 && "border-t border-border",
+                              "flex min-h-14 cursor-pointer items-center bg-background px-4 py-2.5 transition-colors duration-150 hover:bg-muted/50",
                             )}
                           >
                             <div className="flex min-w-0 flex-1 flex-col pe-3">
@@ -854,8 +861,21 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                                   title={id}
                                   className="min-w-0 truncate text-body font-medium"
                                 >
-                                  {id}
+                                  {server.name || id}
                                 </span>
+                                {hasDocs && (
+                                  <button
+                                    type="button"
+                                    aria-label={t("mcpPage.openDocs")}
+                                    className="text-muted-foreground hover:text-primary"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void openDocs(server, id);
+                                    }}
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                                 <NeutralBadge mono>
                                   {transportOf(server.server)}
                                 </NeutralBadge>
@@ -867,10 +887,10 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                               </div>
                               <div className="flex min-w-0 items-center text-caption text-fg-2">
                                 <span
-                                  title={summary}
-                                  className="min-w-0 truncate font-mono"
+                                  title={id + " · " + summary}
+                                  className="min-w-0 truncate"
                                 >
-                                  {summary}
+                                  {server.description || summary}
                                 </span>
                                 {rowFailedApps.length > 0 && (
                                   <span className="ms-2.5 shrink-0 whitespace-nowrap text-warning-text">
@@ -929,7 +949,7 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                               })}
                             </div>
                             <div
-                              className="flex w-16 shrink-0 justify-end gap-1"
+                              className="flex w-24 shrink-0 justify-end gap-1"
                               onClick={(event) => event.stopPropagation()}
                             >
                               <HoverTip content={t("common.edit")}>
@@ -945,6 +965,18 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                                     className="h-[15px] w-[15px]"
                                     strokeWidth={1.5}
                                   />
+                                </Button>
+                              </HoverTip>
+                              <HoverTip content={t("common.delete")}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-compact"
+                                  aria-label={t("mcpPage.deleteTitle", { id })}
+                                  disabled={controlsDisabled}
+                                  onClick={() => setDeleteId(id)}
+                                  className="hover:text-red-500"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </HoverTip>
                               <DropdownMenu>

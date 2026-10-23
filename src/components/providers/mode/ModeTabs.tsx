@@ -77,17 +77,17 @@ export function ModeTabs({
   );
 
   return (
-    <div className="flex min-h-12 shrink-0 items-center gap-4 px-6 pt-3">
+    <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-3 px-6 pt-4">
       <div
         ref={indicator.ref}
         role="group"
         aria-label={t("mode.tabsLabel")}
-        className="relative inline-flex h-9 shrink-0 items-center gap-0.5 rounded-[10px] bg-subtle p-[3px]"
+        className="relative inline-flex h-10 shrink-0 items-center gap-1 rounded-xl bg-accent p-1"
       >
         <SegmentThumb
           rect={indicator.rect}
           animate={indicator.animate}
-          className="rounded-[7px]"
+          className="rounded-lg"
         />
         {modes.map((mode) => {
           const Icon = MODE_ICON[mode];
@@ -100,7 +100,7 @@ export function ModeTabs({
               aria-pressed={selected}
               onClick={() => onView(mode)}
               className={cn(
-                "relative inline-flex h-[30px] min-w-[96px] items-center justify-center gap-1.5 rounded-[7px] px-4 text-body transition-colors duration-150",
+                "relative inline-flex h-8 min-w-[96px] items-center justify-center gap-1.5 rounded-lg px-4 text-sm transition-colors duration-150",
                 isActive
                   ? MODE_TONE[mode].text
                   : selected

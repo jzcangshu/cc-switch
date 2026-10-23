@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ChevronLeft, X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { Button } from "@/components/ui/button";
 import { DRAG_REGION_ATTR } from "@/lib/platform";
@@ -116,12 +116,12 @@ const SheetPageContent = React.forwardRef<
         leading={
           <DialogPrimitive.Close asChild>
             <Button
-              variant="quiet"
-              size="icon-compact"
-              className="h-8 w-8"
+              variant="outline"
+              size="icon"
+              className="rounded-lg"
               aria-label={closeLabel}
             >
-              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           </DialogPrimitive.Close>
         }

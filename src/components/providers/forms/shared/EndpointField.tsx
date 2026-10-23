@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { HelpTip } from "@/components/ui/help-tip";
 import { Zap } from "lucide-react";
 import { REQUIRED_LABEL } from "../BasicFormFields";
 
@@ -13,7 +12,7 @@ interface EndpointFieldProps {
   placeholder: string;
   hint?: string;
   required?: boolean;
-  /** 填写说明放进字段名后的「?」，不占页面；和 `hint` 二选一。 */
+  /** 填写说明；与 hint 二选一，显示在输入框下方。 */
   help?: string;
   showManageButton?: boolean;
   onManageClick?: () => void;
@@ -49,9 +48,6 @@ export function EndpointField({
           >
             {label}
           </FormLabel>
-          {help ? (
-            <HelpTip title={label}>{help.replace(/^💡\s*/u, "")}</HelpTip>
-          ) : null}
         </div>
         {showManageButton && onManageClick ? (
           <button
@@ -73,8 +69,12 @@ export function EndpointField({
         autoComplete="off"
         aria-required={required}
       />
-      {hint ? (
-        <p className="text-caption text-fg-2">{hint.replace(/^💡\s*/u, "")}</p>
+      {hint || help ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20">
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {hint || help}
+          </p>
+        </div>
       ) : null}
     </div>
   );

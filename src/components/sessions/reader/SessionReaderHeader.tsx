@@ -64,6 +64,7 @@ export const readerIconButton =
 // ─── 页头：返回、标题、上一个 / 下一个、恢复、⋯ ───────────────────────────
 
 export interface SessionReaderHeaderProps {
+  embedded?: boolean;
   session: SessionMeta;
   title: string;
   appName: string;
@@ -86,6 +87,7 @@ export interface SessionReaderHeaderProps {
 }
 
 export const SessionReaderHeader = memo(function SessionReaderHeader({
+  embedded = false,
   session,
   title,
   appName,
@@ -363,6 +365,7 @@ export const SessionReaderHeader = memo(function SessionReaderHeader({
 
   return (
     <AppPageHeader
+      headingLevel={embedded ? 2 : 1}
       variant="app"
       truncateTitle
       leading={

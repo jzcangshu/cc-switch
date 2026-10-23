@@ -180,7 +180,7 @@ describe("CodexFormFields direct layout", () => {
 });
 
 describe("CodexFormFields help tips", () => {
-  it("puts field explanations behind「?」and keeps consequences on the page", () => {
+  it("keeps the endpoint explanation visible alongside field help and consequences", () => {
     renderCodexForm({
       apiFormat: "anthropic",
       // 有地址栏的卡才显示上游格式。
@@ -189,7 +189,8 @@ describe("CodexFormFields help tips", () => {
       onCatalogModelsChange: vi.fn(),
     });
 
-    for (const name of ["codexConfig.apiUrlLabel", "默认模型", "子代理模型"]) {
+    expect(screen.getByText("providerForm.codexApiHint")).toBeVisible();
+    for (const name of ["默认模型", "子代理模型"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
     // Anthropic 格式的高级区自动展开：后果提示仍在页面上，说明在字段名后的「?」里。

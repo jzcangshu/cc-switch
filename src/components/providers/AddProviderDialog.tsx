@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
-import {
-  PresetStepContext,
-  type PresetStepState,
-} from "@/components/providers/forms/presetStep";
 import type { Provider, CustomEndpoint, UniversalProvider } from "@/types";
 import type { AppId } from "@/lib/api";
 import { providersApi, universalProvidersApi } from "@/lib/api";
@@ -72,24 +68,7 @@ export function AddProviderDialog({
     appId !== "mcode" &&
     appId !== "grokbuild" &&
     appId !== "claude-desktop";
-  // 两步：先选预设，再填写（每次打开都从第 1 步开始）
-  const [step, setStep] = useState<"pick" | "form">("pick");
-  const [pickerHost, setPickerHost] = useState<HTMLDivElement | null>(null);
   const [manageUniversalOpen, setManageUniversalOpen] = useState(false);
-  useEffect(() => {
-    if (open) setStep("pick");
-  }, [open, appId]);
-  const selectorCount = useRef(0);
-  const registerSelector = useCallback(() => {
-    selectorCount.current += 1;
-    return () => {
-      selectorCount.current -= 1;
-    };
-  }, []);
-  const stepState = useMemo<PresetStepState>(
-    () => ({ appId, step, setStep, host: pickerHost, registerSelector }),
-    [appId, step, pickerHost, registerSelector],
-  );
   const [universalFormOpen, setUniversalFormOpen] = useState(false);
   const [selectedUniversalPreset, setSelectedUniversalPreset] =
     useState<UniversalProviderPreset | null>(null);
@@ -165,13 +144,8 @@ export function AddProviderDialog({
       setAuthSettingsTarget(null);
       return;
     }
-    // 第 2 步的返回回到选预设
-    if (step === "form") {
-      setStep("pick");
-      return;
-    }
     closeDialog();
-  }, [authSettingsTarget, closeDialog, step]);
+  }, [authSettingsTarget, closeDialog]);
   const formReadyToken = useMemo(
     () => Symbol("provider-form-ready"),
     [appId, open],
@@ -469,37 +443,32 @@ export function AddProviderDialog({
 
   const waitingForClaudeBase = appId === "claude" && !claudeBaseLoaded;
 
-  // 表单已经挂上、却没有预设选择器（没有预设可选的表单）：直接进第 2 步。
-  // 子组件的 effect 先于这里执行，选择器在同一次提交里已经登记过了。
-  useEffect(() => {
-    if (open && !waitingForClaudeBase && selectorCount.current === 0) {
-      setStep("form");
-    }
-  }, [open, waitingForClaudeBase, appId]);
-
-  const footer =
-    step === "form" ? (
-      <>
-        <Button
-          type="button"
-          variant="neutral"
-          size="regular"
-          onClick={closeDialog}
-        >
-          {t("common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          form="provider-form"
-          variant="solid"
-          size="regular"
-          disabled={isFormSubmitting || !isFormReady}
-        >
-          {isFormSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {t("common.add")}
-        </Button>
-      </>
-    ) : null;
+  const footer = (
+    <>
+      <Button
+        type="button"
+        variant="neutral"
+        size="regular"
+        onClick={closeDialog}
+      >
+        {t("common.cancel")}
+      </Button>
+      <Button
+        type="submit"
+        form="provider-form"
+        variant="solid"
+        size="regular"
+        disabled={waitingForClaudeBase || isFormSubmitting || !isFormReady}
+      >
+        {isFormSubmitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+        {t("common.add")}
+      </Button>
+    </>
+  );
 
   const form = (
     <ProviderForm
@@ -534,7 +503,7 @@ export function AddProviderDialog({
   return (
     <FullScreenPanel
       isOpen={open}
-      trackUnsavedChanges={step === "form"}
+      trackUnsavedChanges
       title={t("provider.addNewProvider")}
       subtitle={
         stackLayout
@@ -544,35 +513,18 @@ export function AddProviderDialog({
             })
           : APP_DISPLAY_NAME[appId]
       }
-      backLabel={
-        step === "form"
-          ? t("providerPreset.backToPick")
-          : t("provider.backToList")
-      }
+      backLabel={t("provider.backToList")}
       onClose={handlePanelClose}
       footer={footer}
-      contentClassName={
-        step === "pick"
-          ? "flex h-full flex-col space-y-0 p-0"
-          : appId === "pi"
-            ? "pb-0 pt-4"
-            : "pt-4"
-      }
+      contentClassName={appId === "pi" ? "pb-0 pt-4" : "pt-4"}
     >
-      <PresetStepContext.Provider value={stepState}>
-        {step === "pick" && (
-          <div ref={setPickerHost} className="min-h-0 flex-1" />
-        )}
-        <div className={step === "pick" ? "hidden" : undefined}>
-          {waitingForClaudeBase ? (
-            <div className="py-12 text-center text-body text-fg-2">
-              {t("common.loading")}
-            </div>
-          ) : (
-            form
-          )}
+      {waitingForClaudeBase ? (
+        <div className="py-12 text-center text-body text-fg-2">
+          {t("common.loading")}
         </div>
-      </PresetStepContext.Provider>
+      ) : (
+        form
+      )}
 
       {showUniversalTab && (
         <UniversalProviderFormModal

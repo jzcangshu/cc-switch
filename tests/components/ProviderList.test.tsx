@@ -210,7 +210,6 @@ describe("ProviderList Component", () => {
     expect(
       screen.getByRole("heading", { name: "provider.noProviders" }),
     ).toBeInTheDocument();
-    // 页头已经有实心的「添加供应商」，空状态里的两个按钮都是描边
     const importButton = screen.getByRole("button", {
       name: "provider.importCurrent",
     });
@@ -218,9 +217,11 @@ describe("ProviderList Component", () => {
       name: "provider.addProvider",
     });
     for (const button of [importButton, addButton]) {
-      expect(button.className).toContain("border-border-strong");
-      expect(button.className).not.toContain("bg-action");
+      expect(button).toBeEnabled();
     }
+    expect(
+      screen.getByText("provider.noProvidersDescriptionKeyFields"),
+    ).toBeVisible();
 
     fireEvent.click(addButton);
     expect(handleCreate).toHaveBeenCalledTimes(1);

@@ -32,6 +32,7 @@ export const sessionMenuItemClass = "h-8 rounded-control px-2.5 text-body";
 
 interface SessionItemProps {
   session: SessionMeta;
+  isActive?: boolean;
   /** 选了「全部应用」时行首显示应用图标 */
   showAppIcon: boolean;
   /** 按时间模式在第二行先写项目目录名 */
@@ -55,6 +56,7 @@ interface SessionItemProps {
 
 export function SessionItem({
   session,
+  isActive = false,
   showAppIcon,
   showDir,
   selectionMode,
@@ -121,6 +123,7 @@ export function SessionItem({
         "group relative flex h-14 items-center gap-2.5 bg-surface pe-3 ps-4 transition-colors hover:bg-subtle focus-within:bg-subtle",
         bordered && "border-t border-border",
         menuOpen && "bg-subtle",
+        isActive && "bg-primary/10 shadow-[inset_3px_0_0_hsl(var(--primary))]",
       )}
     >
       {selectionMode ? (
@@ -153,6 +156,7 @@ export function SessionItem({
         <>
           <button
             type="button"
+            aria-current={isActive ? "true" : undefined}
             id={openButtonId}
             aria-label={title}
             aria-describedby={hasMeta ? metaId : undefined}

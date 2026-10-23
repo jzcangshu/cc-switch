@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import i18n from "i18next";
 import { useSettingsForm } from "@/hooks/useSettingsForm";
+import type { Settings } from "@/types";
 
 const useSettingsQueryMock = vi.fn();
 
@@ -225,5 +226,80 @@ describe("useSettingsForm Hook", () => {
     });
 
     expect(changeLanguageSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("directory drafts across classic settings tabs", () => {
+  it("retains edited paths across unrelated settings refreshes, then follows remote paths after saving", async () => {
+    const first = {
+      language: "zh",
+      claudeConfigDir: "/saved",
+      codexConfigDir: "/codex",
+      showInTray: true,
+    };
+    useSettingsQueryMock.mockReturnValue({ data: first, isLoading: false });
+    const { result, rerender } = renderHook(() => useSettingsForm());
+    await waitFor(() =>
+      expect(result.current.settings?.claudeConfigDir).toBe("/saved"),
+    );
+    act(() => result.current.updateSettings({ claudeConfigDir: "/draft" }));
+    useSettingsQueryMock.mockReturnValue({
+      data: { ...first, showInTray: false, codexConfigDir: "/external-codex" },
+      isLoading: false,
+    });
+    rerender();
+    await waitFor(() =>
+      expect(result.current.settings?.showInTray).toBe(false),
+    );
+    expect(result.current.settings?.claudeConfigDir).toBe("/draft");
+    expect(result.current.settings?.codexConfigDir).toBe("/external-codex");
+    useSettingsQueryMock.mockReturnValue({
+      data: { ...first, claudeConfigDir: "/draft" },
+      isLoading: false,
+    });
+    rerender();
+    await waitFor(() => expect(result.current.settings?.showInTray).toBe(true));
+    useSettingsQueryMock.mockReturnValue({
+      data: { ...first, claudeConfigDir: "/later-external" },
+      isLoading: false,
+    });
+    rerender();
+    await waitFor(() =>
+      expect(result.current.settings?.claudeConfigDir).toBe("/later-external"),
+    );
+  });
+
+  it("keeps a reset-to-default path as an unsaved draft and explicit reset discards it", async () => {
+    const saved: Settings = {
+      language: "zh",
+      claudeConfigDir: "/saved",
+      showInTray: true,
+      minimizeToTrayOnClose: true,
+    };
+    useSettingsQueryMock.mockReturnValue({ data: saved, isLoading: false });
+    const { result, rerender } = renderHook(() => useSettingsForm());
+    await waitFor(() =>
+      expect(result.current.settings?.claudeConfigDir).toBe("/saved"),
+    );
+    act(() => result.current.updateSettings({ claudeConfigDir: undefined }));
+    useSettingsQueryMock.mockReturnValue({
+      data: { ...saved, showInTray: false },
+      isLoading: false,
+    });
+    rerender();
+    await waitFor(() =>
+      expect(result.current.settings?.showInTray).toBe(false),
+    );
+    expect(result.current.settings?.claudeConfigDir).toBeUndefined();
+    act(() => result.current.resetSettings(saved));
+    expect(result.current.settings?.claudeConfigDir).toBe("/saved");
+    useSettingsQueryMock.mockReturnValue({
+      data: { ...saved, claudeConfigDir: "/remote" },
+      isLoading: false,
+    });
+    rerender();
+    await waitFor(() =>
+      expect(result.current.settings?.claudeConfigDir).toBe("/remote"),
+    );
   });
 });

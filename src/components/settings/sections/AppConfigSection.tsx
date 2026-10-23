@@ -1,11 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
 import type {
   ResolvedDirectories,
   SettingsFormState,
 } from "@/hooks/useSettings";
 import type { Settings } from "@/types";
-import { Button } from "@/components/ui/button";
 import {
   DirectoryInput,
   type DirectoryAppId,
@@ -52,19 +50,14 @@ const DIRECTORY_APPS: DirectoryAppId[] = [
   "pi",
 ];
 
-const normalizeDir = (value: unknown) =>
-  typeof value === "string" && value.trim() ? value.trim() : undefined;
-
 interface AppConfigSectionProps {
   settings: SettingsFormState;
   savedSettings?: Settings;
   resolvedDirs: ResolvedDirectories;
-  isSaving: boolean;
   onAutoSave: (updates: Partial<SettingsFormState>) => Promise<boolean>;
   onDirectoryChange: (app: DirectoryAppId, value?: string) => void;
   onBrowseDirectory: (app: DirectoryAppId) => Promise<void>;
   onResetDirectory: (app: DirectoryAppId) => Promise<void>;
-  onSaveDirectories: () => Promise<void>;
 }
 
 /**
@@ -75,22 +68,12 @@ export function AppConfigSection({
   settings,
   savedSettings,
   resolvedDirs,
-  isSaving,
   onAutoSave,
   onDirectoryChange,
   onBrowseDirectory,
   onResetDirectory,
-  onSaveDirectories,
 }: AppConfigSectionProps) {
   const { t } = useTranslation();
-
-  const isDirty = (app: DirectoryAppId) => {
-    const field = DIRECTORY_FIELD[app];
-    return (
-      normalizeDir(settings[field as keyof SettingsFormState]) !==
-      normalizeDir(savedSettings?.[field])
-    );
-  };
 
   const directoryRow = (app: DirectoryAppId) => (
     <SettingsRow
@@ -116,19 +99,6 @@ export function AppConfigSection({
     </SettingsRow>
   );
 
-  const saveButton = (app: DirectoryAppId) =>
-    isDirty(app) ? (
-      <Button
-        variant="solid"
-        size="compact"
-        disabled={isSaving}
-        onClick={() => void onSaveDirectories()}
-      >
-        {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-        {t("common.save")}
-      </Button>
-    ) : null;
-
   const blockTitle = (app: DirectoryAppId) => (
     <span className="flex items-center gap-2">
       <AppGlyph app={app} size={16} badgeClassName="bg-app" />
@@ -144,7 +114,6 @@ export function AppConfigSection({
           id={`app-config-${app}`}
           className="rounded-panel"
           title={blockTitle(app)}
-          actions={saveButton(app)}
         >
           <SettingsCard>
             {app === "claude" && (

@@ -1,7 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, Pencil } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +39,6 @@ const PromptListItem: React.FC<PromptListItemProps> = ({
   prompt,
   active,
   detail,
-  first,
   disabled = false,
   onToggle,
   onEdit,
@@ -59,11 +59,17 @@ const PromptListItem: React.FC<PromptListItemProps> = ({
         onEdit(id);
       }}
       className={cn(
-        "flex h-[60px] cursor-pointer items-center gap-3 pe-2 ps-4 transition-colors duration-150 hover:bg-subtle",
-        !first && "border-t border-border",
-        active && "bg-subtle",
+        "group relative flex h-16 cursor-pointer items-center gap-4 rounded-xl border border-border bg-muted/50 p-4 transition-colors duration-200 hover:bg-muted hover:shadow-sm",
       )}
     >
+      <Switch
+        checked={active}
+        disabled={disabled}
+        aria-label={t(active ? "prompts.disableAria" : "prompts.enableAria", {
+          name: prompt.name,
+        })}
+        onCheckedChange={(enabled) => onToggle(id, enabled)}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-center gap-1.5">
           <span
@@ -82,23 +88,9 @@ const PromptListItem: React.FC<PromptListItemProps> = ({
           title={detail}
           className="min-w-0 truncate text-caption text-fg-2"
         >
-          {detail}
+          {prompt.description?.trim() || detail}
         </span>
       </div>
-
-      <Button
-        type="button"
-        variant="neutral"
-        size="compact"
-        disabled={disabled}
-        aria-label={t(active ? "prompts.disableAria" : "prompts.enableAria", {
-          name: prompt.name,
-        })}
-        onClick={() => onToggle(id, !active)}
-        className="min-w-14 shrink-0"
-      >
-        {t(active ? "prompts.disable" : "prompts.enable")}
-      </Button>
 
       <div className="flex shrink-0 gap-1">
         <HoverTip content={t("common.edit")}>
@@ -112,6 +104,23 @@ const PromptListItem: React.FC<PromptListItemProps> = ({
           >
             <Pencil className="h-[15px] w-[15px]" strokeWidth={1.5} />
           </Button>
+        </HoverTip>
+        <HoverTip content={deleteBlockedReason || t("common.delete")}>
+          <span>
+            <Button
+              variant="ghost"
+              size="icon-compact"
+              disabled={disabled || Boolean(deleteBlockedReason)}
+              aria-label={t("prompts.deleteAria", {
+                name: prompt.name,
+                defaultValue: "删除 {{name}}",
+              })}
+              onClick={() => onDelete(id)}
+              className="text-muted-foreground hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </span>
         </HoverTip>
         <DropdownMenu modal={false}>
           <HoverTip content={t("common.more")}>

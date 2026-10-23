@@ -31,7 +31,7 @@ describe("ApiKeySection", () => {
       screen.getByRole("link", { name: /providerForm\.getApiKey/ }),
     ).toHaveAttribute("href", "https://example.com/keys");
     expect(
-      screen.getByText("providerForm.partnerPromotion.kimi"),
+      screen.getByText(/providerForm\.partnerPromotion\.kimi/),
     ).toBeInTheDocument();
   });
 

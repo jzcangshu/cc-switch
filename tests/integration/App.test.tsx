@@ -150,9 +150,31 @@ vi.mock("@/contexts/UpdateContext", () => ({
 }));
 
 // 设置页要 ThemeProvider，这里只看导航进去时发生了什么
-vi.mock("@/components/settings/SettingsPage", () => ({
-  SettingsPage: () => <div data-testid="settings-page" />,
-}));
+vi.mock("@/components/settings/SettingsPage", async () => {
+  const { useState, useEffect } = await import("react");
+  return {
+    SettingsPage: ({
+      onUnsavedDirectoriesChange,
+    }: {
+      onUnsavedDirectoriesChange?: (dirty: boolean) => void;
+    }) => {
+      const [draft, setDraft] = useState("");
+      useEffect(() => {
+        onUnsavedDirectoriesChange?.(draft.length > 0);
+        return () => onUnsavedDirectoriesChange?.(false);
+      }, [draft, onUnsavedDirectoriesChange]);
+      return (
+        <div data-testid="settings-page">
+          <input
+            aria-label="settings-directory-draft"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("@/components/skills/UnifiedSkillsPanel", () => ({
   // v7：Skills 的页头（添加 / 检查更新 / 存储与同步）在面板自己里面
@@ -187,9 +209,9 @@ vi.mock("@/components/mcp/UnifiedMcpPanel", async () => {
 });
 
 /** 侧栏里的应用行（v7 侧栏取代了原来页头的应用切换器） */
-const sidebarApp = (name: string) =>
+const appButton = (name: string) =>
   // 首次启动提示是模态对话框，会把侧栏标成 aria-hidden，所以带上 hidden
-  within(document.querySelector("nav") as HTMLElement).getByRole("button", {
+  screen.getByRole("button", {
     name,
     hidden: true,
   });
@@ -225,7 +247,7 @@ describe("App integration with MSW", () => {
       ),
     );
 
-    fireEvent.click(sidebarApp("Codex"));
+    fireEvent.click(appButton("Codex"));
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
         "codex-1",
@@ -329,7 +351,7 @@ describe("App integration with MSW", () => {
     providerScrollContainer()!.scrollTop = 640;
     providerScrollContainer()!.scrollLeft = 24;
 
-    fireEvent.click(sidebarApp("Codex"));
+    fireEvent.click(appButton("Codex"));
 
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
@@ -357,7 +379,7 @@ describe("App integration with MSW", () => {
     // 供应商会以 appId=codex 保存进 Codex
     fireEvent.click(screen.getByText("edit"));
     expect(screen.getByTestId("edit-provider-dialog")).toBeInTheDocument();
-    fireEvent.click(sidebarApp("Codex"));
+    fireEvent.click(appButton("Codex"));
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
         "codex-1",
@@ -369,17 +391,16 @@ describe("App integration with MSW", () => {
 
     fireEvent.click(screen.getByText("usage"));
     expect(screen.getByTestId("usage-modal")).toBeInTheDocument();
-    fireEvent.click(sidebarApp("nav.usage"));
+    fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    fireEvent.click(
+      screen.getByRole("tab", { name: "usage.title", hidden: true }),
+    );
     await waitFor(() =>
       expect(screen.queryByTestId("usage-modal")).not.toBeInTheDocument(),
     );
 
-    fireEvent.click(sidebarApp("Codex"));
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toContain(
-        "codex-1",
-      ),
-    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    await screen.findByTestId("provider-list");
     fireEvent.click(screen.getByText("create"));
     expect(screen.getByTestId("add-provider-dialog")).toBeInTheDocument();
     fireEvent.keyDown(window, { key: ",", metaKey: true });
@@ -398,7 +419,7 @@ describe("App integration with MSW", () => {
 
     // 没改过：照常离开，不问
     fireEvent.click(screen.getByText("edit"));
-    fireEvent.click(sidebarApp("Codex"));
+    fireEvent.click(appButton("Codex"));
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
         "codex-1",
@@ -412,7 +433,7 @@ describe("App integration with MSW", () => {
     fireEvent.input(screen.getByLabelText("edit-field"), {
       target: { value: "draft" },
     });
-    fireEvent.click(sidebarApp("Claude Code"));
+    fireEvent.click(appButton("Claude Code"));
     expect(await screen.findByTestId("confirm-message")).toHaveTextContent(
       "common.unsavedLeaveMessage",
     );
@@ -434,33 +455,61 @@ describe("App integration with MSW", () => {
     ).not.toBeInTheDocument();
   }, 10_000);
 
-  it("keeps the unsaved guard when re-clicking the current page", async () => {
+  it("keeps unsaved page edits when classic Back is cancelled", async () => {
     const { default: App } = await import("@/App");
     renderApp(App);
-    await waitFor(() =>
-      expect(screen.getByTestId("provider-list").textContent).toContain(
-        "claude-1",
-      ),
+    await screen.findByTestId("provider-list");
+    fireEvent.click(
+      screen.getByRole("button", { name: "mcp.title", hidden: true }),
     );
-
-    fireEvent.click(sidebarApp("MCP"));
     fireEvent.input(await screen.findByLabelText("mcp-field"), {
       target: { value: "draft" },
     });
-
-    // 再点当前页：不离开，所以不问，也不能把未保存登记清掉
-    fireEvent.click(sidebarApp("MCP"));
-    expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("mcp-editor")).toBeInTheDocument();
-
-    // 之后真的离开时照样要问
-    fireEvent.click(sidebarApp("nav.usage"));
+    fireEvent.keyDown(window, { key: "Escape" });
     expect(await screen.findByTestId("confirm-message")).toHaveTextContent(
       "common.unsavedLeaveMessage",
     );
     fireEvent.click(screen.getByText("cancel-delete"));
     expect(screen.getByTestId("mcp-editor")).toBeInTheDocument();
-  }, 10_000);
+    fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    expect(await screen.findByTestId("confirm-message")).toHaveTextContent(
+      "common.unsavedLeaveMessage",
+    );
+    fireEvent.click(screen.getByText("confirm-delete"));
+    expect(await screen.findByTestId("settings-page")).toBeInTheDocument();
+  });
+
+  it("preserves settings drafts across tabs and confirms before leaving the settings family", async () => {
+    const { default: App } = await import("@/App");
+    renderApp(App);
+    await screen.findByTestId("provider-list");
+    fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    fireEvent.change(await screen.findByLabelText("settings-directory-draft"), {
+      target: { value: "/new/directory" },
+    });
+    fireEvent.click(
+      screen.getByRole("tab", { name: "usage.title", hidden: true }),
+    );
+    expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("tab", { name: "settings.tabGeneral", hidden: true }),
+    );
+    expect(screen.getByLabelText("settings-directory-draft")).toHaveValue(
+      "/new/directory",
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(await screen.findByTestId("confirm-message")).toHaveTextContent(
+      "common.unsavedLeaveMessage",
+    );
+    fireEvent.click(screen.getByText("cancel-delete"));
+    expect(screen.getByLabelText("settings-directory-draft")).toHaveValue(
+      "/new/directory",
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByText("confirm-delete"));
+    expect(await screen.findByTestId("provider-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+  });
 
   it("shows toast when auto sync fails in background", async () => {
     const { default: App } = await import("@/App");
@@ -526,7 +575,7 @@ describe("App integration with MSW", () => {
     const { default: App } = await import("@/App");
     renderApp(App);
 
-    fireEvent.click(sidebarApp("OpenClaw"));
+    fireEvent.click(appButton("OpenClaw"));
 
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
@@ -861,7 +910,7 @@ describe("App integration with MSW", () => {
     const { default: App } = await import("@/App");
     renderApp(App);
 
-    fireEvent.click(sidebarApp("OpenClaw"));
+    fireEvent.click(appButton("OpenClaw"));
 
     await waitFor(() =>
       expect(screen.getByTestId("provider-list").textContent).toContain(
@@ -894,67 +943,42 @@ describe("App integration with MSW", () => {
     );
   });
 
-  it("navigates OpenClaw and Hermes pages with underline tabs", async () => {
+  it("opens OpenClaw tools and Hermes memory from the classic toolbar", async () => {
     const { default: App } = await import("@/App");
     renderApp(App);
-
-    fireEvent.click(sidebarApp("OpenClaw"));
-    // 首次启动提示是模态对话框，页面其余部分是 aria-hidden，所以带上 hidden
-    const openclawTabs = await screen.findByRole("tablist", {
-      name: "OpenClaw",
-      hidden: true,
-    });
-    const pageTabs = within(openclawTabs).getAllByRole("tab", { hidden: true });
-    expect(pageTabs.map((tab) => tab.textContent)).toEqual([
-      "appPage.providers",
-      "appPage.workspace",
-      "appPage.openclawConfig",
-    ]);
-    expect(pageTabs[0]).toHaveAttribute("aria-selected", "true");
-    expect(
-      screen.queryByRole("group", { name: "OpenClaw", hidden: true }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(pageTabs[2]);
+    fireEvent.click(appButton("OpenClaw"));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "openclaw.env.title",
+        hidden: true,
+      }),
+    );
     const configTabs = await screen.findByRole("tablist", {
       name: "appPage.openclawConfig",
       hidden: true,
     });
-    const subTabs = within(configTabs).getAllByRole("tab", { hidden: true });
-    expect(subTabs).toHaveLength(3);
-    expect(subTabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(configTabs).getAllByRole("tab", { hidden: true }),
+    ).toHaveLength(3);
     expect(screen.getByRole("tabpanel", { hidden: true })).toHaveAttribute(
       "aria-labelledby",
       "openclaw-config-env",
     );
-
-    fireEvent.click(sidebarApp("Hermes"));
-    const hermesTabs = await screen.findByRole("tablist", {
-      name: "Hermes",
-      hidden: true,
-    });
-    const hermesPageTabs = within(hermesTabs).getAllByRole("tab", {
-      hidden: true,
-    });
-    expect(hermesPageTabs.map((tab) => tab.textContent)).toEqual([
-      "appPage.providers",
-      "appPage.memory",
-    ]);
-
-    // 记忆页：页头的 solid 主操作换成「保存」，两份记忆用二级页签
-    fireEvent.click(hermesPageTabs[1]);
-    const header = document.querySelector("header") as HTMLElement;
-    const save = await within(header).findByRole("button", {
-      name: "common.save",
-      hidden: true,
-    });
-    expect(save).toHaveAttribute("aria-disabled", "true");
-    expect(
-      within(header).queryByRole("button", {
-        name: /provider.addProvider/,
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(appButton("Hermes"));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "hermes.memory.title",
         hidden: true,
       }),
-    ).not.toBeInTheDocument();
+    );
+    const header = document.querySelector("header") as HTMLElement;
+    expect(
+      await within(header).findByRole("button", {
+        name: "common.save",
+        hidden: true,
+      }),
+    ).toHaveAttribute("aria-disabled", "true");
     const memoryTabs = await screen.findByRole("tablist", {
       name: "hermes.memory.fileTabs",
       hidden: true,
@@ -962,14 +986,6 @@ describe("App integration with MSW", () => {
     expect(
       within(memoryTabs).getAllByRole("tab", { hidden: true }),
     ).toHaveLength(2);
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole("textbox", {
-          name: "hermes.memory.editorLabel",
-          hidden: true,
-        })[0],
-      ).toHaveValue("agent notes"),
-    );
   });
 
   it("opens the old skillsDiscovery view as the Discover segment", async () => {

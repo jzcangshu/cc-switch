@@ -18,7 +18,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { ProviderIconBox } from "@/components/ProviderIconBox";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import { IconPicker } from "@/components/IconPicker";
 import { getIconMetadata } from "@/icons/extracted/metadata";
 import type { UseFormReturn } from "react-hook-form";
@@ -54,8 +54,6 @@ export function BasicFormFields({
     const meta = getIconMetadata(icon);
     form.setValue("icon", icon);
     form.setValue("iconColor", meta?.defaultColor ?? "");
-    // 单选：点了就是选好了，不用再找「完成」
-    setIconDialogOpen(false);
   };
 
   const iconButton = (
@@ -75,13 +73,13 @@ export function BasicFormFields({
           <button
             type="button"
             aria-label={t("providerIcon.change", { defaultValue: "更换图标" })}
-            className="group shrink-0 rounded-[8px]"
+            className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border-2 border-muted bg-muted/30 p-3 transition-colors hover:border-primary hover:bg-muted/50"
           >
-            <ProviderIconBox
+            <ProviderIcon
               icon={currentIcon}
               name={providerName}
               color={effectiveIconColor}
-              className="bg-surface transition-colors group-hover:bg-subtle"
+              size={48}
             />
           </button>
         </DialogTrigger>
@@ -120,6 +118,13 @@ export function BasicFormFields({
                 color={effectiveIconColor}
                 defaultName={form.watch("name") ?? ""}
               />
+              <div className="flex justify-end gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    {t("common.done", { defaultValue: "完成" })}
+                  </Button>
+                </DialogClose>
+              </div>
             </div>
           </div>
         </div>
@@ -129,11 +134,12 @@ export function BasicFormFields({
 
   return (
     <>
+      <div className="mb-6 flex justify-center">{iconButton}</div>
       {/* Slot for additional fields between icon and name */}
       {beforeNameSlot}
 
       {/* 基础信息 - 网格布局 */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormField
           control={form.control}
           name="name"
@@ -142,21 +148,18 @@ export function BasicFormFields({
               <FormLabel className={REQUIRED_LABEL}>
                 {t("provider.name")}
               </FormLabel>
-              <div className="flex items-center gap-2">
-                {iconButton}
-                <FormControl>
-                  <ImeSafeInput
-                    ref={field.ref}
-                    name={field.name}
-                    value={field.value ?? ""}
-                    onValueChange={field.onChange}
-                    onBlur={field.onBlur}
-                    disabled={field.disabled}
-                    placeholder={t("provider.namePlaceholder")}
-                    aria-required="true"
-                  />
-                </FormControl>
-              </div>
+              <FormControl>
+                <ImeSafeInput
+                  ref={field.ref}
+                  name={field.name}
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  onBlur={field.onBlur}
+                  disabled={field.disabled}
+                  placeholder={t("provider.namePlaceholder")}
+                  aria-required="true"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

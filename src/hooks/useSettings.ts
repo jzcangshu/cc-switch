@@ -10,7 +10,11 @@ import {
   useSaveSettingsMutation,
 } from "@/lib/query";
 import type { Settings } from "@/types";
-import { useSettingsForm, type SettingsFormState } from "./useSettingsForm";
+import {
+  DIRECTORY_KEYS,
+  useSettingsForm,
+  type SettingsFormState,
+} from "./useSettingsForm";
 import {
   useDirectorySettings,
   type DirectoryAppId,
@@ -52,16 +56,7 @@ export interface UseSettingsResult {
 
 export type { SettingsFormState, ResolvedDirectories };
 
-const DIRECTORY_KEYS = [
-  "claudeConfigDir",
-  "codexConfigDir",
-  "geminiConfigDir",
-  "grokConfigDir",
-  "opencodeConfigDir",
-  "openclawConfigDir",
-  "hermesConfigDir",
-  "piConfigDir",
-] as const;
+export { DIRECTORY_KEYS } from "./useSettingsForm";
 
 const sanitizeDir = (value?: string | null): string | undefined => {
   if (!value) return undefined;

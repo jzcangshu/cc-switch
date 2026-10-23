@@ -3,8 +3,11 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
   ArrowUp,
+  Activity,
+  BarChart3,
   ChevronDown,
   CircleDot,
+  Copy,
   ListMinus,
   ListPlus,
   Loader2,
@@ -19,6 +22,7 @@ import {
   Route,
   SquareTerminal,
   Star,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +33,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -43,7 +46,7 @@ const DOT: Record<CardTone | "muted", string> = {
   muted: "bg-fg-3",
 };
 
-/** 主操作位只放图标，名字由 HoverTip 悬停即显（key 见 presentation.ts）。 */
+/** 操作含义由第四版的卡片呈现模型决定，这里只负责按钮的文字与图标。 */
 const BUTTON_ICON: Record<string, LucideIcon> = {
   switch: Play,
   exitAndUse: Plug,
@@ -72,10 +75,7 @@ interface ProviderCardActionsProps {
 }
 
 /**
- * 卡片右侧（v7）：主操作位（状态文字或按钮）→ 上移 / 下移（故障转移队列）→ 编辑 → ⋯。
- * 次要操作都在 ⋯ 里：跟当前模式有关的（聚合页的「设为默认」）在最前，然后是复制、检测连通、
- * 配置用量查询、打开终端、删除。
- * 按钮一律纯图标 + HoverTip；有禁用原因时改由 DisabledReason 的说明卡报原因。
+ * 第三版的文字主按钮和常用操作栏。第四版新增的模式菜单与禁用原因继续使用原来的呈现模型。
  */
 export function ProviderCardActions({
   providerName,
@@ -92,140 +92,176 @@ export function ProviderCardActions({
   const { status, buttons, move, menuItems = [] } = presentation;
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
-      <div className="flex items-center justify-end gap-1">
-        {status && (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap px-1 text-body font-medium text-fg-1">
-            <span
-              aria-hidden="true"
-              className={cn("h-1.5 w-1.5 rounded-full", DOT[status.dot])}
-            />
-            {status.label}
-          </span>
-        )}
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+      {status && (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-subtle px-3 py-2 text-sm font-medium text-fg-1">
+          <span
+            aria-hidden="true"
+            className={cn("h-1.5 w-1.5 rounded-full", DOT[status.dot])}
+          />
+          {status.label}
+        </span>
+      )}
+      <div className="flex flex-wrap items-center justify-end gap-1 transition-opacity duration-200 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
         {buttons.map((button) => (
           <PrimaryButton key={button.key} button={button} />
         ))}
-      </div>
 
-      {move && (
-        <div className="flex items-center">
-          <HoverTip
-            content={t("providerCard.action.moveUp", { name: providerName })}
-          >
-            <Button
-              variant="quiet"
-              size="icon-compact"
-              aria-label={t("providerCard.action.moveUp", {
+        {move && (
+          <div className="flex items-center">
+            <HoverTip
+              content={t("providerCard.action.moveUp", { name: providerName })}
+            >
+              <Button
+                variant="quiet"
+                size="icon"
+                aria-label={t("providerCard.action.moveUp", {
+                  name: providerName,
+                })}
+                disabled={!move.onUp}
+                onClick={move.onUp}
+              >
+                <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
+              </Button>
+            </HoverTip>
+            <HoverTip
+              content={t("providerCard.action.moveDown", {
                 name: providerName,
               })}
-              disabled={!move.onUp}
-              onClick={move.onUp}
             >
-              <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </HoverTip>
-          <HoverTip
-            content={t("providerCard.action.moveDown", { name: providerName })}
-          >
-            <Button
-              variant="quiet"
-              size="icon-compact"
-              aria-label={t("providerCard.action.moveDown", {
-                name: providerName,
-              })}
-              disabled={!move.onDown}
-              onClick={move.onDown}
-            >
-              <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </HoverTip>
-        </div>
-      )}
+              <Button
+                variant="quiet"
+                size="icon"
+                aria-label={t("providerCard.action.moveDown", {
+                  name: providerName,
+                })}
+                disabled={!move.onDown}
+                onClick={move.onDown}
+              >
+                <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
+              </Button>
+            </HoverTip>
+          </div>
+        )}
 
-      <IconAction
-        tip={t("common.edit")}
-        disabledReason={presentation.editDisabledReason}
-      >
-        <Button
-          variant="quiet"
-          size="icon-compact"
-          aria-label={t("providerCard.action.edit", { name: providerName })}
-          onClick={onEdit}
+        <IconAction
+          tip={t("common.edit")}
+          disabledReason={presentation.editDisabledReason}
         >
-          <Pencil className="h-4 w-4" strokeWidth={1.5} />
-        </Button>
-      </IconAction>
-
-      <DropdownMenu>
-        <HoverTip content={t("common.more")}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="quiet"
-              size="icon-compact"
-              aria-label={t("providerCard.action.more", {
-                name: providerName,
-              })}
-            >
-              <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </DropdownMenuTrigger>
-        </HoverTip>
-        <DropdownMenuContent align="end" className="min-w-[180px]">
-          {menuItems.map((item) => (
-            <DropdownMenuItem
-              key={item.key}
-              disabled={Boolean(item.disabledReason)}
-              onSelect={item.onSelect}
-              className="flex-col items-start gap-0.5"
-            >
-              {item.label}
-              {item.disabledReason && (
-                <span className="max-w-64 text-caption text-fg-3">
-                  {item.disabledReason}
-                </span>
-              )}
-            </DropdownMenuItem>
-          ))}
-          {menuItems.length > 0 && <DropdownMenuSeparator />}
-          {onDuplicate && (
-            <DropdownMenuItem onSelect={onDuplicate}>
-              {t("provider.duplicate")}
-            </DropdownMenuItem>
-          )}
-          {onTest && (
-            <DropdownMenuItem disabled={isTesting} onSelect={onTest}>
-              {isTesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {t("provider.connectivityCheck")}
-            </DropdownMenuItem>
-          )}
-          {onConfigureUsage && (
-            <DropdownMenuItem onSelect={onConfigureUsage}>
-              {t("provider.configureUsage")}
-            </DropdownMenuItem>
-          )}
-          {onOpenTerminal && (
-            <DropdownMenuItem onSelect={onOpenTerminal}>
-              {t("provider.openTerminal")}
-            </DropdownMenuItem>
-          )}
-          {(onDuplicate || onTest || onConfigureUsage || onOpenTerminal) && (
-            <DropdownMenuSeparator />
-          )}
-          <DropdownMenuItem
-            disabled={Boolean(presentation.deleteDisabledReason)}
-            onSelect={onDelete}
-            className="flex-col items-start gap-0.5 text-danger-text focus:text-danger-text"
+          <Button
+            variant="quiet"
+            size="icon"
+            aria-label={t("providerCard.action.edit", { name: providerName })}
+            onClick={onEdit}
           >
-            {t("common.delete")}
-            {presentation.deleteDisabledReason && (
-              <span className="text-caption text-fg-3">
-                {presentation.deleteDisabledReason}
-              </span>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <Pencil className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </IconAction>
+
+        {onDuplicate && (
+          <HoverTip content={t("provider.duplicate")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("provider.duplicate")}
+              onClick={onDuplicate}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </HoverTip>
+        )}
+        {onTest && (
+          <HoverTip content={t("provider.connectivityCheck")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("provider.connectivityCheck")}
+              disabled={isTesting}
+              onClick={onTest}
+            >
+              {isTesting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Activity className="h-4 w-4" />
+              )}
+            </Button>
+          </HoverTip>
+        )}
+        {onConfigureUsage && (
+          <HoverTip content={t("provider.configureUsage")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("provider.configureUsage")}
+              onClick={onConfigureUsage}
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
+          </HoverTip>
+        )}
+        {onOpenTerminal && (
+          <HoverTip content={t("provider.openTerminal")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("provider.openTerminal")}
+              onClick={onOpenTerminal}
+              className="hover:text-emerald-600 dark:hover:text-emerald-400"
+            >
+              <SquareTerminal className="h-4 w-4" />
+            </Button>
+          </HoverTip>
+        )}
+        <IconAction
+          tip={t("common.delete")}
+          disabledReason={presentation.deleteDisabledReason}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("common.delete")}
+            onClick={onDelete}
+            className="hover:text-red-500 dark:hover:text-red-400"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </IconAction>
+
+        {menuItems.length > 0 && (
+          <DropdownMenu>
+            <HoverTip content={t("common.more")}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="quiet"
+                  size="icon"
+                  aria-label={t("providerCard.action.more", {
+                    name: providerName,
+                  })}
+                >
+                  <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </DropdownMenuTrigger>
+            </HoverTip>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              {menuItems.map((item) => (
+                <DropdownMenuItem
+                  key={item.key}
+                  disabled={Boolean(item.disabledReason)}
+                  onSelect={item.onSelect}
+                  className="flex-col items-start gap-0.5"
+                >
+                  {item.label}
+                  {item.disabledReason && (
+                    <span className="max-w-64 text-caption text-fg-3">
+                      {item.disabledReason}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }
@@ -253,22 +289,30 @@ function IconAction({
 function PrimaryButton({ button }: { button: CardButton }) {
   const Icon = BUTTON_ICON[button.key] ?? CircleDot;
   const icon = <Icon className="h-4 w-4" strokeWidth={1.5} />;
+  const className = cn(
+    "h-8 min-w-[4.5rem] rounded-lg px-2.5",
+    (button.key === "routeHere" || button.key === "queueAdd") &&
+      "bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700",
+    (button.key === "remove" ||
+      button.key === "queueRemove" ||
+      button.key === "disable") &&
+      "bg-orange-100 text-orange-600 hover:bg-orange-200 dark:bg-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-900/70",
+  );
   if (button.menu && !button.disabledReason) {
     return (
       <DropdownMenu>
-        <HoverTip content={button.label}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="quiet"
-              size="compact"
-              aria-label={button.label}
-              className="w-auto gap-0.5 px-1.5 text-fg-2 hover:text-fg-1"
-            >
-              {icon}
-              <ChevronDown className="h-3 w-3 opacity-70" />
-            </Button>
-          </DropdownMenuTrigger>
-        </HoverTip>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="default"
+            size="sm"
+            aria-label={button.label}
+            className={className}
+          >
+            {icon}
+            {button.label}
+            <ChevronDown className="h-3 w-3 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
           className="max-h-72 min-w-64 overflow-y-auto"
@@ -293,15 +337,17 @@ function PrimaryButton({ button }: { button: CardButton }) {
     );
   }
   return (
-    <IconAction tip={button.label} disabledReason={button.disabledReason}>
+    <DisabledReason reason={button.disabledReason} align="end">
       <Button
-        variant="quiet"
-        size="icon-compact"
+        variant="default"
+        size="sm"
+        className={className}
         aria-label={button.label}
         onClick={button.onClick}
       >
         {icon}
+        {button.label}
       </Button>
-    </IconAction>
+    </DisabledReason>
   );
 }

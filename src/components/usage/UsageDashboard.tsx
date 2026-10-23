@@ -156,6 +156,7 @@ function MenuMeta({ children }: { children: React.ReactNode }) {
 }
 
 interface UsageDashboardProps {
+  embedded?: boolean;
   refreshIntervalMs?: number;
   onRefreshIntervalChange?: (next: number) => Promise<boolean> | boolean | void;
   sessionAutoSyncEnabled?: boolean;
@@ -179,6 +180,7 @@ interface UsageDashboardProps {
  * 用量统计全局页（v7 S6）：页头 → 筛选行 → 指标 → 趋势图 → 子页签（请求日志 / 供应商 / 模型 / 定价）。
  */
 export function UsageDashboard({
+  embedded = false,
   refreshIntervalMs: savedRefreshIntervalMs,
   onRefreshIntervalChange,
   sessionAutoSyncEnabled = true,
@@ -902,14 +904,21 @@ export function UsageDashboard({
 
   return (
     <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <AppPageHeader
-        icon={<ChartColumn className="h-5 w-5" strokeWidth={1.5} />}
-        title={t("nav.usage")}
-        titleExtra={
-          <HelpTip title={t("nav.usage")}>{t("usage.subtitle")}</HelpTip>
-        }
-        actions={headerActions}
-      />
+      {embedded ? (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-6 pb-3">
+          <p className="text-sm text-muted-foreground">{t("usage.subtitle")}</p>
+          <div className="flex items-center gap-2">{headerActions}</div>
+        </div>
+      ) : (
+        <AppPageHeader
+          icon={<ChartColumn className="h-5 w-5" strokeWidth={1.5} />}
+          title={t("nav.usage")}
+          titleExtra={
+            <HelpTip title={t("nav.usage")}>{t("usage.subtitle")}</HelpTip>
+          }
+          actions={headerActions}
+        />
+      )}
       {filterRow}
       {body}
 

@@ -169,7 +169,7 @@ export function McodeProviderForm({
     <Form {...form}>
       <form
         id="provider-form"
-        className="space-y-6"
+        className="glass space-y-6 rounded-xl border border-white/10 p-6"
         onSubmit={form.handleSubmit(async (identity) => {
           if (!ready || busy) return;
           setBusy(true);
@@ -205,6 +205,7 @@ export function McodeProviderForm({
       >
         {!initialData && (
           <ProviderPresetSelector
+            appId="mcode"
             selectedPresetId={presetId}
             presetEntries={PRESET_ENTRIES}
             presetCategoryLabels={{

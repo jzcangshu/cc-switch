@@ -4,6 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { TFunction } from "i18next";
 import type { ProviderCategory } from "@/types";
+import { universalProviderPresets } from "@/config/universalProviderPresets";
+import {
+  useUnsavedChangesTracker,
+  hasUnsavedChanges,
+  discardUnsavedChanges,
+} from "@/lib/unsavedChanges";
 import {
   ProviderPresetSelector,
   filterPresetEntries,
@@ -12,10 +18,6 @@ import {
   getVisiblePresetRows,
   type PresetEntry,
 } from "@/components/providers/forms/ProviderPresetSelector";
-import {
-  PresetStepContext,
-  type PresetStepState,
-} from "@/components/providers/forms/presetStep";
 import {
   PRESET_GROUP_ORDER,
   domainBody,
@@ -382,30 +384,24 @@ describe("preset families", () => {
   });
 });
 
-function TwoSteps({
+function OnePage({
   onPresetChange,
   presetEntries = entries,
+  trackChanges = false,
 }: {
   onPresetChange: (id: string) => void;
   presetEntries?: PresetEntry[];
+  trackChanges?: boolean;
 }) {
-  const [step, setStep] = useState<"pick" | "form">("pick");
-  const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<string | null>("custom");
   // 表单的替身：选预设时程序重填（清空 Key），用户可以手动输入
   const [apiKey, setApiKey] = useState("");
-  const state: PresetStepState = {
-    appId: "claude",
-    step,
-    setStep,
-    host,
-    registerSelector: () => () => undefined,
-  };
+  const changes = useUnsavedChangesTracker(trackChanges);
   return (
-    <PresetStepContext.Provider value={state}>
-      {step === "pick" && <div data-testid="host" ref={setHost} />}
-      <form>
+    <form {...changes}>
+      <div data-testid="picker">
         <ProviderPresetSelector
+          appId="claude"
           selectedPresetId={selected}
           presetEntries={presetEntries}
           onPresetChange={(id) => {
@@ -414,77 +410,109 @@ function TwoSteps({
             onPresetChange(id);
           }}
         />
-        {step === "form" && (
-          <input
-            aria-label="api-key"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-        )}
-      </form>
-    </PresetStepContext.Provider>
+      </div>
+      <input
+        aria-label="api-key"
+        value={apiKey}
+        onChange={(event) => setApiKey(event.target.value)}
+      />
+    </form>
   );
 }
 
 describe("ProviderPresetSelector", () => {
+  it("ignores search, sorting and categories while tracking presets and edited fields", async () => {
+    const user = userEvent.setup();
+    render(
+      <OnePage
+        onPresetChange={vi.fn()}
+        presetEntries={familyEntries}
+        trackChanges
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "providerPreset.searchAriaLabel" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "providerPreset.searchAriaLabel" }),
+      "Kimi",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "providerPreset.sortAriaLabel" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /providerPreset.group.vendor/ }),
+    );
+    expect(hasUnsavedChanges()).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Kimi" }));
+    expect(hasUnsavedChanges()).toBe(true);
+    discardUnsavedChanges();
+    await user.type(screen.getByLabelText("api-key"), "test-key");
+    expect(hasUnsavedChanges()).toBe(true);
+  });
+  it("shows universal presets and management beside the ordinary grid without changing category", async () => {
+    const onPresetChange = vi.fn();
+    const onUniversalPresetSelect = vi.fn();
+    const onManageUniversalProviders = vi.fn();
+    render(
+      <ProviderPresetSelector
+        appId="claude"
+        selectedPresetId="custom"
+        presetEntries={entries}
+        onPresetChange={onPresetChange}
+        onUniversalPresetSelect={onUniversalPresetSelect}
+        onManageUniversalProviders={onManageUniversalProviders}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: universalProviderPresets[0].name }),
+    );
+    expect(onUniversalPresetSelect).toHaveBeenCalledWith(
+      universalProviderPresets[0],
+    );
+    expect(onPresetChange).not.toHaveBeenCalled();
+    await userEvent.click(
+      screen.getByRole("button", { name: "providerPreset.manageUniversal" }),
+    );
+    expect(onManageUniversalProviders).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Gamma" }));
+    expect(onPresetChange).toHaveBeenCalledWith("gamma");
+  });
   beforeAll(() => {
     // Radix Select 打开时会滚动到选中项，jsdom 没有 scrollIntoView
     Element.prototype.scrollIntoView ??= vi.fn();
   });
 
-  it("picks a preset in step 1, then shows a preset bar that goes back", async () => {
+  it("keeps the preset grid and fields on one page when changing providers", async () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
-    render(<TwoSteps onPresetChange={onPresetChange} />);
+    render(<OnePage onPresetChange={onPresetChange} />);
 
-    const host = await screen.findByTestId("host");
-    // 自定义配置固定第一行；其余按分类分段（账号登录 → 模型厂商 → 第三方平台 → 云服务商 → 本地），段内按名称
+    const host = await screen.findByTestId("picker");
+    expect(screen.getByLabelText("api-key")).toBeVisible();
+    // 自定义配置固定第一格；选预设后无需切换页面即可填写。
     const rows = within(host)
       .getAllByRole("button")
       .filter((button) => !button.hasAttribute("aria-pressed"));
     expect(rows[0]).toHaveTextContent("providerPreset.custom");
     expect(
-      within(host)
-        .getAllByRole("heading")
-        .map((heading) => heading.textContent),
-    ).toEqual([
-      "providerPreset.group.login",
-      "providerPreset.group.vendor",
-      "providerPreset.group.thirdparty",
-      "providerPreset.group.cloud",
-      "providerPreset.group.local",
-    ]);
-    const login = within(host).getByRole("region", {
-      name: "providerPreset.group.login",
-    });
-    expect(
-      within(login)
-        .getAllByRole("button")
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["GitHub Copilot", "preset.alpha"]);
-    expect(
-      within(
-        within(host).getByRole("region", {
-          name: "providerPreset.group.cloud",
-        }),
-      ).getByRole("button", { name: "AWS Bedrock" }),
+      within(host).getByRole("button", { name: "AWS Bedrock" }),
     ).toBeInTheDocument();
 
     await user.click(within(host).getByText("preset.zhipu"));
     expect(onPresetChange).toHaveBeenCalledWith("zhipu");
-    expect(screen.queryByTestId("host")).not.toBeInTheDocument();
+    expect(screen.getByTestId("picker")).toBeVisible();
+    expect(screen.getByLabelText("api-key")).toBeVisible();
     expect(screen.getByText("open.bigmodel.cn")).toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("button", { name: "providerPreset.change" }),
-    );
-    expect(await screen.findByTestId("host")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Gamma" }));
+    expect(onPresetChange).toHaveBeenLastCalledWith("gamma");
   });
 
   it("filters by category and keeps the search text when clicking around", async () => {
     const user = userEvent.setup();
-    render(<TwoSteps onPresetChange={vi.fn()} />);
-    const host = await screen.findByTestId("host");
+    render(<OnePage onPresetChange={vi.fn()} />);
+    const host = await screen.findByTestId("picker");
 
     await user.click(
       within(host).getByRole("button", { name: /providerPreset.group.login/ }),
@@ -495,6 +523,11 @@ describe("ProviderPresetSelector", () => {
       within(host).getByText("providerPreset.loginWith.github"),
     ).toBeInTheDocument();
 
+    await user.click(
+      within(host).getByRole("button", {
+        name: "providerPreset.searchAriaLabel",
+      }),
+    );
     const search = within(host).getByRole("textbox", {
       name: "providerPreset.searchAriaLabel",
     });
@@ -506,16 +539,88 @@ describe("ProviderPresetSelector", () => {
     ).toBeInTheDocument();
   });
 
-  it("picks the first version of a merged row, then switches plan and region in the bar", async () => {
+  it("opens preset search with the keyboard and returns to all entries on Escape", async () => {
+    const user = userEvent.setup();
+    render(<OnePage onPresetChange={vi.fn()} />);
+    expect(
+      screen.queryByRole("textbox", { name: "providerPreset.searchAriaLabel" }),
+    ).not.toBeInTheDocument();
+    await user.keyboard("{Control>}f{/Control}");
+    const search = await screen.findByRole("textbox", {
+      name: "providerPreset.searchAriaLabel",
+    });
+    await waitFor(() => expect(search).toHaveFocus());
+    await user.type(search, "Gamma");
+    expect(
+      screen.queryByRole("button", { name: "AWS Bedrock" }),
+    ).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("textbox", { name: "providerPreset.searchAriaLabel" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "AWS Bedrock" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("api-key")).toBeVisible();
+  });
+
+  it("restores default preset priority after switching alphabetical order off", async () => {
+    const user = userEvent.setup();
+    render(<OnePage onPresetChange={vi.fn()} />);
+    const rows = () =>
+      within(screen.getByTestId("picker"))
+        .getAllByRole("button")
+        .filter((button) => !button.hasAttribute("aria-pressed"));
+    expect(rows()[1]).toHaveAccessibleName("preset.alpha");
+    const sort = screen.getByRole("button", {
+      name: "providerPreset.sortAriaLabel",
+    });
+    await user.click(sort);
+    expect(rows()[1]).toHaveAccessibleName("AWS Bedrock");
+    await user.click(sort);
+    expect(rows()[1]).toHaveAccessibleName("preset.alpha");
+  });
+
+  it("retains application-specific routing and sign-in hints", () => {
+    const grokEntries = [
+      {
+        id: "official",
+        preset: preset("Grok Official", "official", "https://grok.com"),
+      },
+    ];
+    const { rerender } = render(
+      <ProviderPresetSelector
+        appId="grokbuild"
+        selectedPresetId="custom"
+        presetEntries={grokEntries}
+        onPresetChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Grok Official" }),
+    ).toHaveAttribute("aria-description", "providerPreset.loginWith.xai");
+    rerender(
+      <ProviderPresetSelector
+        appId="claude-desktop"
+        selectedPresetId="custom"
+        presetEntries={[entries[5]]}
+        onPresetChange={vi.fn()}
+      />,
+    );
+    expect(
+      within(screen.getByRole("button", { name: "GitHub Copilot" })).getByText(
+        "providerCard.chip.needsRoute",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the grid visible while switching the selected family plan and region", async () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
     render(
-      <TwoSteps
-        onPresetChange={onPresetChange}
-        presetEntries={familyEntries}
-      />,
+      <OnePage onPresetChange={onPresetChange} presetEntries={familyEntries} />,
     );
-    const host = await screen.findByTestId("host");
+    const host = await screen.findByTestId("picker");
 
     expect(within(host).getAllByText("Kimi")).toHaveLength(1);
     expect(
@@ -553,8 +658,8 @@ describe("ProviderPresetSelector", () => {
       screen.queryByText("providerPreset.switchVersionTitle"),
     ).not.toBeInTheDocument();
     expect(onPresetChange).toHaveBeenLastCalledWith("kimi-intl");
-    // 换版本留在第 2 步
-    expect(screen.queryByTestId("host")).not.toBeInTheDocument();
+    // 换版本后预设网格和表单仍同时显示
+    expect(screen.getByTestId("picker")).toBeVisible();
     expect(regions()[1]).toHaveAttribute("aria-pressed", "true");
 
     // 切套餐时地区保持海外
@@ -568,12 +673,12 @@ describe("ProviderPresetSelector", () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
     render(
-      <TwoSteps
+      <OnePage
         onPresetChange={onPresetChange}
         presetEntries={[...entries.slice(0, 1), ...zhipuFamily]}
       />,
     );
-    const host = await screen.findByTestId("host");
+    const host = await screen.findByTestId("picker");
     await user.click(within(host).getByRole("button", { name: "Zhipu GLM" }));
     expect(onPresetChange).toHaveBeenLastCalledWith("glm-cn");
 
@@ -596,12 +701,12 @@ describe("ProviderPresetSelector", () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
     render(
-      <TwoSteps
+      <OnePage
         onPresetChange={onPresetChange}
         presetEntries={[...entries.slice(0, 1), ...tencentPartial]}
       />,
     );
-    const host = await screen.findByTestId("host");
+    const host = await screen.findByTestId("picker");
     await user.click(
       within(host).getByRole("button", {
         name: "providerPreset.family.tencent",
@@ -635,12 +740,9 @@ describe("ProviderPresetSelector", () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
     render(
-      <TwoSteps
-        onPresetChange={onPresetChange}
-        presetEntries={familyEntries}
-      />,
+      <OnePage onPresetChange={onPresetChange} presetEntries={familyEntries} />,
     );
-    const host = await screen.findByTestId("host");
+    const host = await screen.findByTestId("picker");
     await user.click(within(host).getByRole("button", { name: "Kimi" }));
     expect(onPresetChange).toHaveBeenLastCalledWith("kimi-cn");
     onPresetChange.mockClear();
@@ -692,13 +794,15 @@ describe("ProviderPresetSelector", () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
     render(
-      <TwoSteps
-        onPresetChange={onPresetChange}
-        presetEntries={familyEntries}
-      />,
+      <OnePage onPresetChange={onPresetChange} presetEntries={familyEntries} />,
     );
-    const host = await screen.findByTestId("host");
+    const host = await screen.findByTestId("picker");
 
+    await user.click(
+      within(host).getByRole("button", {
+        name: "providerPreset.searchAriaLabel",
+      }),
+    );
     await user.type(
       within(host).getByRole("textbox", {
         name: "providerPreset.searchAriaLabel",
@@ -713,12 +817,54 @@ describe("ProviderPresetSelector", () => {
     expect(onPresetChange).toHaveBeenLastCalledWith("kimi-coding");
   });
 
+  it("confirms a searched family version before replacing an edited form", async () => {
+    const user = userEvent.setup();
+    const onPresetChange = vi.fn();
+    render(
+      <OnePage onPresetChange={onPresetChange} presetEntries={familyEntries} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Kimi" }));
+    await user.type(screen.getByLabelText("api-key"), "sk-typed");
+    onPresetChange.mockClear();
+    await user.click(screen.getByRole("button", { name: "Kimi" }));
+    expect(screen.getByLabelText("api-key")).toHaveValue("sk-typed");
+    expect(onPresetChange).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "providerPreset.searchAriaLabel" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "providerPreset.searchAriaLabel" }),
+      "coding",
+    );
+    await user.click(screen.getByRole("button", { name: "Kimi" }));
+    expect(
+      await screen.findByText("providerPreset.switchVersionTitle"),
+    ).toBeInTheDocument();
+    expect(onPresetChange).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "common.cancel" }));
+    expect(screen.getByLabelText("api-key")).toHaveValue("sk-typed");
+    await user.click(screen.getByRole("button", { name: "Kimi" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "providerPreset.switchVersionConfirm",
+      }),
+    );
+    expect(onPresetChange).toHaveBeenCalledTimes(1);
+    expect(onPresetChange).toHaveBeenCalledWith("kimi-coding");
+    expect(screen.getByLabelText("api-key")).toHaveValue("");
+  });
+
   it("offers the custom config when nothing matches", async () => {
     const user = userEvent.setup();
     const onPresetChange = vi.fn();
-    render(<TwoSteps onPresetChange={onPresetChange} />);
-    const host = await screen.findByTestId("host");
+    render(<OnePage onPresetChange={onPresetChange} />);
+    const host = await screen.findByTestId("picker");
 
+    await user.click(
+      within(host).getByRole("button", {
+        name: "providerPreset.searchAriaLabel",
+      }),
+    );
     await user.type(
       within(host).getByRole("textbox", {
         name: "providerPreset.searchAriaLabel",

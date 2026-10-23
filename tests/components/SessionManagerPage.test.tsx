@@ -341,7 +341,7 @@ describe("SessionManagerPage", () => {
     openRow("Alpha Session");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Alpha Session" }),
+      await screen.findByRole("heading", { level: 2, name: "Alpha Session" }),
     ).toBeInTheDocument();
     // 返回和会话名并进页头：只剩一层页头，「会话」那条不再单独出现
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
@@ -358,8 +358,10 @@ describe("SessionManagerPage", () => {
     expect(screen.queryByText("shell")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^展开执行过程/ }));
     expect(screen.getByText("shell")).toBeInTheDocument();
-    // 列表藏起来了
-    expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
+    // 第三版双栏：阅读时列表仍在，当前会话与批量选择各自独立。
+    expect(
+      screen.getByRole("region", { name: "会话列表" }),
+    ).toBeInTheDocument();
 
     // 只看对话：工具调用隐藏
     fireEvent.click(screen.getByRole("button", { name: "对话" }));
@@ -368,7 +370,7 @@ describe("SessionManagerPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "下一个会话" }));
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Beta Session" }),
+      await screen.findByRole("heading", { level: 2, name: "Beta Session" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "上一个会话" })).toBeEnabled();
 
@@ -449,10 +451,13 @@ describe("SessionManagerPage", () => {
     renderPage("codex");
     await screen.findByText("Alpha Session");
     openRow("Alpha Session");
-    await screen.findByRole("heading", { level: 1, name: "Alpha Session" });
+    await screen.findByRole("heading", { level: 2, name: "Alpha Session" });
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Alpha Session 的更多操作" }),
+      within(screen.getByRole("region", { name: "会话阅读" })).getByRole(
+        "button",
+        { name: "Alpha Session 的更多操作" },
+      ),
     );
     await userEvent.click(
       await screen.findByRole("menuitem", { name: "删除…" }),
@@ -465,7 +470,7 @@ describe("SessionManagerPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("heading", { level: 1, name: "Alpha Session" }),
+        screen.queryByRole("heading", { level: 2, name: "Alpha Session" }),
       ).not.toBeInTheDocument(),
     );
     await waitFor(() =>

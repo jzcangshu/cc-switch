@@ -10,13 +10,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "@/lib/toast";
 import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ExternalLink,
-  KeyRound,
-  MoreHorizontal,
-  Plus,
-  Search,
-} from "lucide-react";
+import { ExternalLink, MoreHorizontal, Plus, Search } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Provider, VisibleApps } from "@/types";
 import { KNOWN_APP_TYPES, type AppTypeFilter } from "@/types/usage";
@@ -63,18 +57,22 @@ import {
   sharedFeatureAppOf,
   storeView,
   type GlobalPage,
+  type AppPage,
   type SettingsSection,
   type View,
 } from "@/lib/navigation";
-import { Sidebar } from "@/components/shell/Sidebar";
+import { ClassicHeader } from "@/components/shell/ClassicHeader";
+import { ClassicStatusBar } from "@/components/shell/ClassicStatusBar";
+import { ClassicSettingsTabs } from "@/components/settings/ClassicSettingsTabs";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { NewLayoutDialog } from "@/components/shell/NewLayoutDialog";
 import {
   AppPageHeader,
   WindowControlsContext,
+  PageBackContext,
 } from "@/components/shell/AppPageHeader";
 import { WindowControls } from "@/components/shell/WindowControls";
-import { APP_DISPLAY_NAME, AppGlyph } from "@/components/shell/AppGlyph";
+import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { ProfileSwitcher } from "@/components/profiles/ProfileSwitcher";
 import { ProviderList } from "@/components/providers/ProviderList";
 import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
@@ -106,10 +104,8 @@ import UnifiedSkillsPanel from "@/components/skills/UnifiedSkillsPanel";
 import { DeepLinkImportDialog } from "@/components/DeepLinkImportDialog";
 import { FirstRunNoticeDialog } from "@/components/FirstRunNoticeDialog";
 import { WhatsNewNotice } from "@/components/WhatsNewDialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HoverTip } from "@/components/ui/hover-tip";
-import { HelpTip } from "@/components/ui/help-tip";
 import { PageTabs } from "@/components/ui/page-tabs";
 import {
   DropdownMenu,
@@ -642,8 +638,18 @@ function App() {
 
   // 整页编辑器里有未保存的修改：先确认，确认放弃后再执行这次导航
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
-  const confirmLeave = (proceed: () => void) => {
-    if (!hasUnsavedChanges()) return false;
+  const settingsDraftDirtyRef = useRef(false);
+  const onSettingsDraftChange = useCallback((dirty: boolean) => {
+    settingsDraftDirtyRef.current = dirty;
+  }, []);
+  const isSettingsView = (view: View) =>
+    view === "settings" || view === "auth" || view === "usage";
+  const confirmLeave = (proceed: () => void, preserveSettingsDraft = false) => {
+    if (
+      !hasUnsavedChanges() &&
+      (!settingsDraftDirtyRef.current || preserveSettingsDraft)
+    )
+      return false;
     setPendingLeave(() => proceed);
     return true;
   };
@@ -653,9 +659,15 @@ function App() {
     appConfigTarget?: AppId,
   ) => {
     if (managementBusyRef.current) return;
-    if (confirmLeave(() => openSettings(section, appConfigTarget))) return;
+    if (
+      confirmLeave(
+        () => openSettings(section, appConfigTarget),
+        isSettingsView(currentViewRef.current),
+      )
+    )
+      return;
     closeProviderPanels();
-    if (currentViewRef.current !== "settings") {
+    if (!["settings", "auth", "usage"].includes(currentViewRef.current)) {
       settingsReturnViewRef.current = currentViewRef.current;
     }
     setSettingsSection(section);
@@ -663,9 +675,29 @@ function App() {
     setCurrentView("settings");
   };
 
-  const exitSettings = () => {
-    setCurrentView(settingsReturnViewRef.current);
+  const selectAppPage = (page: AppPage, afterNavigate?: () => void) => {
+    if (managementBusyRef.current) return;
+    if (confirmLeave(() => selectAppPage(page, afterNavigate))) return;
+    closeProviderPanels();
+    setCurrentView(page);
+    afterNavigate?.();
   };
+
+  const backFromPage = () => {
+    if (managementBusyRef.current) return;
+    if (confirmLeave(backFromPage)) return;
+    closeProviderPanels();
+    const view = currentViewRef.current;
+    setCurrentView(
+      view === "skillsDiscovery"
+        ? "skills"
+        : view === "settings" || view === "auth" || view === "usage"
+          ? settingsReturnViewRef.current
+          : "providers",
+    );
+  };
+  const backFromPageRef = useRef(backFromPage);
+  backFromPageRef.current = backFromPage;
 
   const selectApp = (app: AppId) => {
     if (managementBusyRef.current) return;
@@ -684,13 +716,20 @@ function App() {
     if (managementBusyRef.current) return;
     // 再点当前页不会离开：不弹确认，也不能清掉编辑页的未保存登记
     if (currentViewRef.current === page) return;
-    if (confirmLeave(() => openPage(page))) return;
+    if (confirmLeave(() => openPage(page), page === "auth" || page === "usage"))
+      return;
     closeProviderPanels();
     if (page === "prompts" && currentViewRef.current !== "prompts") {
       // 提示词页默认选中侧栏里最后选的那个应用
       setPromptsApp(
         PROMPT_APP_IDS.includes(sharedFeatureApp) ? sharedFeatureApp : "claude",
       );
+    }
+    if (
+      (page === "auth" || page === "usage") &&
+      !["settings", "auth", "usage"].includes(currentViewRef.current)
+    ) {
+      settingsReturnViewRef.current = currentViewRef.current;
     }
     setCurrentView(page);
   };
@@ -746,13 +785,9 @@ function App() {
       if (managementBusyRef.current) return;
       if (isTextEditableTarget(event.target)) return;
 
-      const view = currentViewRef.current;
-      if (view === "skillsDiscovery") {
+      if (currentViewRef.current !== "providers") {
         event.preventDefault();
-        setCurrentView("skills");
-      } else if (view === "settings") {
-        event.preventDefault();
-        setCurrentView(settingsReturnViewRef.current);
+        backFromPageRef.current();
       }
     };
 
@@ -1092,12 +1127,15 @@ function App() {
           <Button
             variant="quiet"
             size="icon-compact"
-            className="h-8 w-8"
+            className="relative h-8 w-8"
             aria-label={t("appPage.moreActions", {
               name: APP_DISPLAY_NAME[activeApp],
             })}
           >
             <MoreHorizontal className="h-4 w-4" />
+            {checkToolUpdatesOnStartup && toolUpdatesAvailable && (
+              <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-green-500" />
+            )}
           </Button>
         </DropdownMenuTrigger>
       </HoverTip>
@@ -1121,6 +1159,9 @@ function App() {
         <DropdownMenuItem onSelect={() => openPage("apps")}>
           {t("appPage.installAndUpgrade")}
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openPage("auth")}>
+          {t("nav.auth")}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={Object.values(visibleApps).filter(Boolean).length <= 1}
@@ -1141,118 +1182,84 @@ function App() {
           ? t("appPage.memory")
           : undefined;
 
-  const renderAppPageHeader = () => (
-    <AppPageHeader
-      variant="app"
-      icon={<AppGlyph app={activeApp} size={20} badgeClassName="bg-app" />}
-      title={APP_DISPLAY_NAME[activeApp]}
-      truncateTitle={currentView === "providers" && Boolean(modeAppId)}
-      titleExtra={
-        currentView === "providers" && modeAppId ? (
+  const renderAppPageHeader = () =>
+    currentView === "providers" ? (
+      <ClassicHeader
+        activeApp={activeApp}
+        visibleApps={visibleApps}
+        onSelectApp={selectApp}
+        onSelectPage={openPageFromNav}
+        onSelectAppPage={selectAppPage}
+        onOpenClawConfig={(tab) => {
+          selectAppPage("openclawConfig", () => setOpenclawConfigTab(tab));
+        }}
+        status={
           <div
             ref={setConnectionStatusSlot}
-            className="ms-2 flex min-w-0 max-w-[280px] items-center"
+            className="flex min-w-0 items-center"
           />
-        ) : undefined
-      }
-      subtitle={
-        activeApp === "openclaw" ||
-        activeApp === "hermes" ||
-        (currentView === "providers" && modeAppId)
-          ? undefined
-          : appPageName
-      }
-      actions={
-        <>
-          {currentView === "providers" &&
-            activeApp !== "mcode" &&
-            (settingsData?.showProfileSwitcher ?? false) && (
-              <ProfileSwitcher activeApp={activeApp} />
-            )}
-          {activeApp === "hermes" && (
-            <Button
-              variant="quiet"
-              size="regular"
-              onClick={() => void openHermesWebUI()}
-            >
-              {t("appPage.webUi")}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {currentView === "providers" &&
-            (settingsData?.showProviderSearch ?? true) && (
-              <HoverTip
-                content={t("provider.searchButtonTip", {
-                  shortcut: isMac() ? "⌘F" : "Ctrl+F",
-                })}
+        }
+        hasUpdate={hasUpdate}
+        actions={
+          <>
+            {currentView === "providers" &&
+              activeApp !== "mcode" &&
+              (settingsData?.showProfileSwitcher ?? false) && (
+                <div className="max-w-[140px] [&_button]:max-w-full">
+                  <ProfileSwitcher activeApp={activeApp} />
+                </div>
+              )}
+            {activeApp === "hermes" && (
+              <Button
+                variant="quiet"
+                size="regular"
+                onClick={() => void openHermesWebUI()}
               >
-                <Button
-                  variant="quiet"
-                  size="icon-compact"
-                  className="h-8 w-8"
-                  aria-label={t("provider.searchAriaLabel")}
-                  aria-pressed={providerSearchOpen}
-                  onClick={() => setProviderSearchOpen((open) => !open)}
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-              </HoverTip>
+                {t("appPage.webUi")}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
             )}
-          {currentView === "providers" && (
-            <Button
-              variant="solid"
-              size="regular"
-              onClick={() => openAddProvider(currentModeView)}
-            >
-              <Plus className="h-4 w-4" />
-              {t("provider.addProvider")}
-            </Button>
-          )}
-          {currentView === "hermesMemory" && <HermesMemorySaveButton />}
-          {appMenu}
-        </>
-      }
-    />
-  );
-
-  // OpenClaw / Hermes 没有模式 tab，那一行放它们自己的页面导航。
-  // 换整块内容的是页面导航，用下划线页签；分段控件只留给模式和页内筛选。
-  const renderAppSegments = () => {
-    if (activeApp === "openclaw") {
-      return (
-        <div className="shrink-0 px-6 pt-2">
-          <PageTabs
-            aria-label={APP_DISPLAY_NAME.openclaw}
-            idPrefix="openclaw-page"
-            value={currentView}
-            onValueChange={(view) => setCurrentView(view)}
-            items={[
-              { value: "providers", label: t("appPage.providers") },
-              { value: "workspace", label: t("appPage.workspace") },
-              { value: "openclawConfig", label: t("appPage.openclawConfig") },
-            ]}
-          />
-        </div>
-      );
-    }
-    if (activeApp === "hermes") {
-      return (
-        <div className="shrink-0 px-6 pt-2">
-          <PageTabs
-            aria-label={APP_DISPLAY_NAME.hermes}
-            idPrefix="hermes-page"
-            value={currentView}
-            onValueChange={(view) => setCurrentView(view)}
-            items={[
-              { value: "providers", label: t("appPage.providers") },
-              { value: "hermesMemory", label: t("appPage.memory") },
-            ]}
-          />
-        </div>
-      );
-    }
-    return null;
-  };
+            {currentView === "providers" &&
+              (settingsData?.showProviderSearch ?? true) && (
+                <HoverTip
+                  content={t("provider.searchButtonTip", {
+                    shortcut: isMac() ? "⌘F" : "Ctrl+F",
+                  })}
+                >
+                  <Button
+                    variant="quiet"
+                    size="icon-compact"
+                    className="h-8 w-8"
+                    aria-label={t("provider.searchAriaLabel")}
+                    aria-pressed={providerSearchOpen}
+                    onClick={() => setProviderSearchOpen((open) => !open)}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </HoverTip>
+              )}
+            {currentView === "providers" && (
+              <Button
+                variant="default"
+                size="icon"
+                aria-label={t("provider.addProvider")}
+                onClick={() => openAddProvider(currentModeView)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+            {appMenu}
+          </>
+        }
+      />
+    ) : (
+      <AppPageHeader
+        title={appPageName}
+        actions={
+          currentView === "hermesMemory" ? <HermesMemorySaveButton /> : appMenu
+        }
+      />
+    );
 
   const listCallbacks = {
     onEdit: (provider: Provider) => {
@@ -1409,7 +1416,6 @@ function App() {
     return (
       <>
         {renderAppPageHeader()}
-        {renderAppSegments()}
         {isOpenClawView && openclawHealthWarnings.length > 0 && (
           <OpenClawHealthBanner warnings={openclawHealthWarnings} />
         )}
@@ -1422,43 +1428,6 @@ function App() {
 
   const renderGlobalPage = () => {
     switch (currentView) {
-      case "usage":
-        return (
-          <UsagePage
-            initialAppType={usageAppFilter}
-            onOpenRoutingSettings={() => openSettings("routing")}
-          />
-        );
-      case "auth":
-        return (
-          <>
-            <AppPageHeader
-              icon={<KeyRound className="h-5 w-5" strokeWidth={1.5} />}
-              title={t("nav.auth")}
-              titleExtra={
-                <>
-                  <HelpTip title={t("authCenter.helpTitle")}>
-                    {t("settings.authCenter.description")}
-                  </HelpTip>
-                  <Badge
-                    variant="outline"
-                    className="ms-1 h-5 px-1.5 text-badge font-medium"
-                  >
-                    {t("settings.authCenter.beta", { defaultValue: "Beta" })}
-                  </Badge>
-                </>
-              }
-            />
-            <div
-              id="main-content"
-              className="min-h-0 flex-1 overflow-y-auto scroll-stable"
-            >
-              <div className="px-6 pb-10 pt-4">
-                <AuthCenterPanel showIntro={false} />
-              </div>
-            </div>
-          </>
-        );
       case "mcp":
         return (
           <UnifiedMcpPanel onInteractionBlockedChange={setMcpManagementBusy} />
@@ -1508,15 +1477,55 @@ function App() {
   };
 
   const renderContent = () => {
-    if (currentView === "settings") {
+    if (
+      currentView === "settings" ||
+      currentView === "auth" ||
+      currentView === "usage"
+    ) {
       return (
-        <SettingsPage
-          section={settingsSection}
-          appConfigScrollTarget={appConfigScrollTarget}
-          onImportSuccess={handleImportSuccess}
-          onOpenApps={() => setCurrentView("apps")}
-          onOpenApp={selectApp}
-        />
+        <>
+          <AppPageHeader title={t("settings.title")} />
+          <ClassicSettingsTabs
+            view={currentView}
+            section={settingsSection}
+            onSectionChange={openSettings}
+            onPageChange={openPage}
+          >
+            {currentView === "auth" && (
+              <div
+                id="main-content"
+                className="min-h-0 flex-1 overflow-y-auto px-6 pb-8"
+              >
+                <AuthCenterPanel showIntro={false} />
+              </div>
+            )}
+            {currentView === "usage" && (
+              <UsagePage
+                embedded
+                initialAppType={usageAppFilter}
+                onOpenRoutingSettings={() => openSettings("routing")}
+              />
+            )}
+            <div
+              className={
+                currentView === "settings"
+                  ? "flex min-h-0 flex-1 flex-col"
+                  : "hidden"
+              }
+            >
+              <SettingsPage
+                section={settingsSection}
+                hideHeader
+                active={currentView === "settings"}
+                onUnsavedDirectoriesChange={onSettingsDraftChange}
+                appConfigScrollTarget={appConfigScrollTarget}
+                onImportSuccess={handleImportSuccess}
+                onOpenApps={() => openPage("apps")}
+                onOpenApp={selectApp}
+              />
+            </div>
+          </ClassicSettingsTabs>
+        </>
       );
     }
     return isAppPage(currentView) ? renderAppPage() : renderGlobalPage();
@@ -1526,167 +1535,161 @@ function App() {
     <WindowControlsContext.Provider
       value={useAppWindowControls ? <WindowControls /> : null}
     >
-      <div className="flex h-screen overflow-hidden bg-app text-fg-1 selection:bg-action/25">
-        <Sidebar
-          activeApp={activeApp}
-          view={currentView}
-          visibleApps={visibleApps}
-          settingsSection={settingsSection}
-          onSelectApp={selectApp}
-          onSelectPage={openPageFromNav}
-          onSelectSettingsSection={(section) => {
-            setAppConfigScrollTarget(undefined);
-            setSettingsSection(section);
-          }}
-          onExitSettings={exitSettings}
-          appsUpdateAvailable={
-            checkToolUpdatesOnStartup && toolUpdatesAvailable
-          }
-        />
-        <main
-          ref={mainScrollRef}
-          id="content-area"
-          className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-app"
-        >
-          {showEnvBanner && envConflicts.length > 0 && (
-            <EnvWarningBanner
-              conflicts={envConflicts}
-              onDismiss={() => {
-                setShowEnvBanner(false);
-                sessionStorage.setItem("env_banner_dismissed", "true");
-              }}
-              onDeleted={async () => {
-                try {
-                  const allConflicts = await checkAllEnvConflicts();
-                  const flatConflicts = Object.values(allConflicts).flat();
-                  setEnvConflicts(flatConflicts);
-                  if (flatConflicts.length === 0) {
-                    setShowEnvBanner(false);
-                  }
-                } catch (error) {
-                  console.error(
-                    "[App] Failed to re-check conflicts after deletion:",
-                    error,
-                  );
-                }
-              }}
-            />
-          )}
-          <div
-            key={
-              currentView === "settings"
-                ? "settings"
-                : isAppPage(currentView)
-                  ? "app"
-                  : currentView
-            }
-            className="flex min-h-0 flex-1 flex-col"
+      <PageBackContext.Provider value={backFromPage}>
+        <div className="classic-app flex h-screen flex-col overflow-hidden bg-background text-foreground selection:bg-primary/30">
+          {isMac() && <div className="h-7 shrink-0" data-tauri-drag-region />}
+
+          <main
+            ref={mainScrollRef}
+            id="content-area"
+            className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-app"
           >
-            {renderContent()}
-          </div>
-        </main>
-      </div>
+            {showEnvBanner && envConflicts.length > 0 && (
+              <EnvWarningBanner
+                conflicts={envConflicts}
+                onDismiss={() => {
+                  setShowEnvBanner(false);
+                  sessionStorage.setItem("env_banner_dismissed", "true");
+                }}
+                onDeleted={async () => {
+                  try {
+                    const allConflicts = await checkAllEnvConflicts();
+                    const flatConflicts = Object.values(allConflicts).flat();
+                    setEnvConflicts(flatConflicts);
+                    if (flatConflicts.length === 0) {
+                      setShowEnvBanner(false);
+                    }
+                  } catch (error) {
+                    console.error(
+                      "[App] Failed to re-check conflicts after deletion:",
+                      error,
+                    );
+                  }
+                }}
+              />
+            )}
+            <div
+              key={
+                isSettingsView(currentView)
+                  ? "settings"
+                  : isAppPage(currentView)
+                    ? "app"
+                    : currentView
+              }
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {renderContent()}
+            </div>
+          </main>
+          <ClassicStatusBar
+            visibleApps={visibleApps}
+            onOpenApp={selectApp}
+            onOpenPage={openPageFromNav}
+          />
+        </div>
 
-      <AddProviderDialog
-        open={isAddOpen}
-        onOpenChange={setIsAddOpen}
-        appId={activeApp}
-        onSubmit={addProvider}
-        modeView={formModeView}
-      />
-
-      <EditProviderDialog
-        open={Boolean(editingProvider)}
-        provider={effectiveEditingProvider}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingProvider(null);
-          }
-        }}
-        onSubmit={handleEditProvider}
-        appId={activeApp}
-        isProxyTakeover={isCurrentAppTakeoverActive}
-        isCurrent={effectiveEditingProvider?.id === currentProviderId}
-        modeView={formModeView}
-      />
-
-      {effectiveUsageProvider && (
-        <UsageScriptModal
-          key={effectiveUsageProvider.id}
-          provider={effectiveUsageProvider}
+        <AddProviderDialog
+          open={isAddOpen}
+          onOpenChange={setIsAddOpen}
           appId={activeApp}
-          isOpen={Boolean(usageProvider)}
-          onClose={() => setUsageProvider(null)}
-          onSave={(script) => {
-            if (usageProvider) {
-              void saveUsageScript(usageProvider, script);
+          onSubmit={addProvider}
+          modeView={formModeView}
+        />
+
+        <EditProviderDialog
+          open={Boolean(editingProvider)}
+          provider={effectiveEditingProvider}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingProvider(null);
             }
           }}
+          onSubmit={handleEditProvider}
+          appId={activeApp}
+          isProxyTakeover={isCurrentAppTakeoverActive}
+          isCurrent={effectiveEditingProvider?.id === currentProviderId}
+          modeView={formModeView}
         />
-      )}
 
-      <OpenTerminalDialog
-        provider={terminalProvider}
-        appId={activeApp}
-        onClose={() => setTerminalProvider(null)}
-      />
+        {effectiveUsageProvider && (
+          <UsageScriptModal
+            key={effectiveUsageProvider.id}
+            provider={effectiveUsageProvider}
+            appId={activeApp}
+            isOpen={Boolean(usageProvider)}
+            onClose={() => setUsageProvider(null)}
+            onSave={(script) => {
+              if (usageProvider) {
+                void saveUsageScript(usageProvider, script);
+              }
+            }}
+          />
+        )}
 
-      <ConfirmDialog
-        isOpen={Boolean(confirmAction)}
-        title={
-          confirmAction?.action === "remove"
-            ? t("confirm.removeProvider")
-            : t("confirm.deleteProvider")
-        }
-        message={confirmActionMessage}
-        // 「移除」只是从应用配置里拿掉、CC Switch 里还留着，可以再加回去，不用红色
-        variant={confirmAction?.action === "remove" ? "info" : "destructive"}
-        onConfirm={() => void handleConfirmAction()}
-        onCancel={() => setConfirmAction(null)}
-      />
+        <OpenTerminalDialog
+          provider={terminalProvider}
+          appId={activeApp}
+          onClose={() => setTerminalProvider(null)}
+        />
 
-      <ConfirmDialog
-        isOpen={pendingLeave !== null}
-        title={t("common.unsavedLeaveTitle")}
-        message={t("common.unsavedLeaveMessage")}
-        confirmText={t("common.unsavedLeaveConfirm")}
-        cancelText={t("common.unsavedLeaveCancel")}
-        zIndex="top"
-        onConfirm={() => {
-          const proceed = pendingLeave;
-          setPendingLeave(null);
-          discardUnsavedChanges();
-          proceed?.();
-        }}
-        onCancel={() => setPendingLeave(null)}
-      />
+        <ConfirmDialog
+          isOpen={Boolean(confirmAction)}
+          title={
+            confirmAction?.action === "remove"
+              ? t("confirm.removeProvider")
+              : t("confirm.deleteProvider")
+          }
+          message={confirmActionMessage}
+          // 「移除」只是从应用配置里拿掉、CC Switch 里还留着，可以再加回去，不用红色
+          variant={confirmAction?.action === "remove" ? "info" : "destructive"}
+          onConfirm={() => void handleConfirmAction()}
+          onCancel={() => setConfirmAction(null)}
+        />
 
-      <ConfirmDialog
-        isOpen={launchDashboardOpen}
-        title={t("hermes.webui.launchConfirmTitle")}
-        message={t("hermes.webui.launchConfirmMessage")}
-        confirmText={t("hermes.webui.launchConfirmAction")}
-        variant="info"
-        onConfirm={() => {
-          setLaunchDashboardOpen(false);
-          void (async () => {
-            try {
-              await hermesApi.launchDashboard();
-              toast.success(t("hermes.webui.launching"));
-            } catch (error) {
-              toast.error(t("hermes.webui.launchFailed"), {
-                description: extractErrorMessage(error) || undefined,
-              });
-            }
-          })();
-        }}
-        onCancel={() => setLaunchDashboardOpen(false)}
-      />
+        <ConfirmDialog
+          isOpen={pendingLeave !== null}
+          title={t("common.unsavedLeaveTitle")}
+          message={t("common.unsavedLeaveMessage")}
+          confirmText={t("common.unsavedLeaveConfirm")}
+          cancelText={t("common.unsavedLeaveCancel")}
+          zIndex="top"
+          onConfirm={() => {
+            const proceed = pendingLeave;
+            setPendingLeave(null);
+            discardUnsavedChanges();
+            settingsDraftDirtyRef.current = false;
+            proceed?.();
+          }}
+          onCancel={() => setPendingLeave(null)}
+        />
 
-      <DeepLinkImportDialog />
-      <FirstRunNoticeDialog />
-      <NewLayoutDialog />
-      <WhatsNewNotice />
+        <ConfirmDialog
+          isOpen={launchDashboardOpen}
+          title={t("hermes.webui.launchConfirmTitle")}
+          message={t("hermes.webui.launchConfirmMessage")}
+          confirmText={t("hermes.webui.launchConfirmAction")}
+          variant="info"
+          onConfirm={() => {
+            setLaunchDashboardOpen(false);
+            void (async () => {
+              try {
+                await hermesApi.launchDashboard();
+                toast.success(t("hermes.webui.launching"));
+              } catch (error) {
+                toast.error(t("hermes.webui.launchFailed"), {
+                  description: extractErrorMessage(error) || undefined,
+                });
+              }
+            })();
+          }}
+          onCancel={() => setLaunchDashboardOpen(false)}
+        />
+
+        <DeepLinkImportDialog />
+        <FirstRunNoticeDialog />
+        <NewLayoutDialog />
+        <WhatsNewNotice />
+      </PageBackContext.Provider>
     </WindowControlsContext.Provider>
   );
 }

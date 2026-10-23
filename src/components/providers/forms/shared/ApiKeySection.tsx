@@ -54,7 +54,6 @@ export function ApiKeySection({
     category !== "cloud_provider";
 
   const showLink = shouldShowLink && Boolean(websiteUrl);
-  // 推广语跟着「获取 API Key」走，按输入框说明文字的样式写在框下面（v7 不画推广框）
   const promotion =
     showLink && partnerPromotionKey
       ? t(`providerForm.partnerPromotion.${partnerPromotionKey}`, {
@@ -63,31 +62,39 @@ export function ApiKeySection({
       : "";
 
   return (
-    <ApiKeyInput
-      id={id}
-      label={label}
-      value={value}
-      onChange={onChange}
-      placeholder={
-        category === "official"
-          ? finalPlaceholder.official
-          : finalPlaceholder.thirdParty
-      }
-      disabled={isDisabled}
-      required={isRequired}
-      labelAside={
-        showLink ? (
+    <div className="space-y-1">
+      <ApiKeyInput
+        id={id}
+        label={label}
+        value={value}
+        onChange={onChange}
+        placeholder={
+          category === "official"
+            ? finalPlaceholder.official
+            : finalPlaceholder.thirdParty
+        }
+        disabled={isDisabled}
+        required={isRequired}
+      />
+      {showLink && (
+        <div className="-mt-1 space-y-2 pl-1">
           <a
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-caption text-blue-400 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
           >
-            {t("providerForm.getApiKey", { defaultValue: "获取 API Key" })} ↗
+            {t("providerForm.getApiKey", { defaultValue: "获取 API Key" })}
           </a>
-        ) : null
-      }
-      hint={promotion || undefined}
-    />
+          {promotion && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-2.5 dark:border-blue-800 dark:bg-blue-950/30">
+              <p className="text-xs leading-relaxed text-blue-700 dark:text-blue-300">
+                💡 {promotion}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

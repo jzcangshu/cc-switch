@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { TabUnderline, useSlidingIndicator } from "./sliding-indicator";
+import { SegmentThumb, useSlidingIndicator } from "./sliding-indicator";
 
 /**
  * 下划线页签：页面级导航（换的是整块内容，例如用量页的「请求日志 / 供应商 / …」、
@@ -70,8 +70,8 @@ export function PageTabs<T extends string>({
     <div
       className={cn(
         small
-          ? "flex h-8 items-end gap-3"
-          : "flex h-9 items-end gap-4 border-b border-border",
+          ? "flex min-h-9 items-center gap-3"
+          : "flex min-h-10 items-center gap-4",
         className,
       )}
     >
@@ -80,15 +80,15 @@ export function PageTabs<T extends string>({
         role="tablist"
         aria-label={rest["aria-label"]}
         className={cn(
-          "relative flex h-full items-end",
-          small ? "gap-3" : "gap-4",
+          "relative inline-flex max-w-full items-center overflow-x-auto rounded-lg bg-muted p-1",
+          small ? "gap-1" : "gap-1.5",
         )}
       >
         {/* 下划线单独一条，切换时滑过去；一级页签压住整行底线 */}
-        <TabUnderline
+        <SegmentThumb
           rect={indicator.rect}
           animate={indicator.animate}
-          className={small ? undefined : "-bottom-px"}
+          className="rounded-md"
         />
         {items.map((item) => {
           const selected = item.value === value;
@@ -108,11 +108,11 @@ export function PageTabs<T extends string>({
               onClick={() => onValueChange(item.value)}
               onKeyDown={onKeyDown}
               className={cn(
-                "h-full whitespace-nowrap border-b-2 px-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-fg-3",
+                "relative z-10 h-8 whitespace-nowrap rounded-md px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-fg-3",
                 small
                   ? "inline-flex items-center gap-1.5 text-caption"
-                  : "-mb-px text-body",
-                "border-transparent",
+                  : "text-sm",
+
                 selected
                   ? "font-semibold text-fg-1"
                   : "font-medium text-fg-2 hover:text-fg-1",

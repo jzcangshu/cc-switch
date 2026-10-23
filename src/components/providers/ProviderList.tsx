@@ -427,11 +427,11 @@ export function ProviderList({
 
   if (isLoading || (isLiveMembershipPending && sortedProviders.length > 0)) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {[0, 1, 2].map((index) => (
           <div
             key={index}
-            className="h-[60px] w-full rounded-panel border border-dashed border-border bg-subtle"
+            className="h-28 w-full rounded-lg border border-dashed border-muted-foreground/40 bg-muted/40"
           />
         ))}
       </div>
@@ -599,7 +599,7 @@ export function ProviderList({
           onDragEnd={handleDragEnd}
         >
           {sections.map((section, index) => (
-            <section key={section.key} className="space-y-2">
+            <section key={section.key} className="space-y-3">
               {section.title && !(index === 0 && liftLeadTitle) && (
                 <div className="pt-1">{renderSectionTitle(section)}</div>
               )}
@@ -612,7 +612,7 @@ export function ProviderList({
                   items={section.items.map((item) => item.provider.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {section.items.map((item) =>
                       renderCard(item.provider, item.presentation),
                     )}

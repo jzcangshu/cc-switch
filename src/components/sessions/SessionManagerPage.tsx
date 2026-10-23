@@ -37,7 +37,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HoverTip } from "@/components/ui/hover-tip";
-import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import {
+  AppPageHeader,
+  WindowControlsContext,
+} from "@/components/shell/AppPageHeader";
 import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { isMac } from "@/lib/platform";
@@ -612,8 +615,12 @@ export function SessionManagerPage({
       return;
     }
     if (readerSession) {
+      event.preventDefault();
+      event.stopPropagation();
       backToList();
     } else if (selectionMode) {
+      event.preventDefault();
+      event.stopPropagation();
       exitSelection();
     }
   };
@@ -635,6 +642,7 @@ export function SessionManagerPage({
       <SessionItem
         key={key}
         session={session}
+        isActive={readerKey === key}
         showAppIcon={showAppIcon}
         showDir={groupMode === "time"}
         selectionMode={selectionMode}
@@ -936,7 +944,7 @@ export function SessionManagerPage({
       onWheel={(event) => event.stopPropagation()}
     >
       {/* 阅读页自己画页头（返回、会话名和会话的操作并在一条里），这里只在列表时画 */}
-      {!readerSession && (
+      {
         <AppPageHeader
           icon={<History className="h-5 w-5" strokeWidth={1.5} />}
           title={t("nav.sessions", { defaultValue: "会话" })}
@@ -1014,48 +1022,68 @@ export function SessionManagerPage({
             </DropdownMenu>
           }
         />
-      )}
+      }
 
-      <div id="main-content" className="flex min-h-0 flex-1 flex-col">
-        {readerSession && (
-          <SessionReader
-            key={readerKey}
-            session={readerSession}
-            appName={appName(readerSession.providerId)}
-            transcript={transcript}
-            listQuery={trimmedQuery}
-            launchTerminal={terminalName}
-            hasPrev={readerIndex > 0}
-            hasNext={
-              readerIndex >= 0 && readerIndex < orderedSessions.length - 1
-            }
-            onPrev={() =>
-              readerIndex > 0 &&
-              setReaderKey(getSessionKey(orderedSessions[readerIndex - 1]))
-            }
-            onNext={() =>
-              readerIndex >= 0 &&
-              readerIndex < orderedSessions.length - 1 &&
-              setReaderKey(getSessionKey(orderedSessions[readerIndex + 1]))
-            }
-            onBack={backToList}
-            onLaunch={() => void handleLaunch(readerSession)}
-            onCopy={handleCopy}
-            onOpenTerminalSettings={onOpenTerminalSettings ?? (() => undefined)}
-            onReload={() => void reloadMessages()}
-            onDelete={() => openDelete([readerSession], "reader")}
-          />
+      <div
+        id="main-content"
+        className="flex min-h-0 flex-1 flex-col gap-4 px-6 pb-6 min-[900px]:flex-row"
+      >
+        {readerSession ? (
+          <section
+            className="order-last flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+            aria-label={t("sessionManager.readerRegion", {
+              defaultValue: "会话阅读",
+            })}
+          >
+            <WindowControlsContext.Provider value={null}>
+              <SessionReader
+                embedded
+                key={readerKey}
+                session={readerSession}
+                appName={appName(readerSession.providerId)}
+                transcript={transcript}
+                listQuery={trimmedQuery}
+                launchTerminal={terminalName}
+                hasPrev={readerIndex > 0}
+                hasNext={
+                  readerIndex >= 0 && readerIndex < orderedSessions.length - 1
+                }
+                onPrev={() =>
+                  readerIndex > 0 &&
+                  setReaderKey(getSessionKey(orderedSessions[readerIndex - 1]))
+                }
+                onNext={() =>
+                  readerIndex >= 0 &&
+                  readerIndex < orderedSessions.length - 1 &&
+                  setReaderKey(getSessionKey(orderedSessions[readerIndex + 1]))
+                }
+                onBack={backToList}
+                onLaunch={() => void handleLaunch(readerSession)}
+                onCopy={handleCopy}
+                onOpenTerminalSettings={
+                  onOpenTerminalSettings ?? (() => undefined)
+                }
+                onReload={() => void reloadMessages()}
+                onDelete={() => openDelete([readerSession], "reader")}
+              />
+            </WindowControlsContext.Provider>
+          </section>
+        ) : (
+          <div className="order-last hidden min-w-0 flex-1 items-center justify-center rounded-xl glass-card text-muted-foreground min-[900px]:flex">
+            {t("sessionManager.selectSession", {
+              defaultValue: "选择一个会话查看内容",
+            })}
+          </div>
         )}
 
         {/* 列表在阅读页打开时只是藏起来，返回后滚动位置还在 */}
         <div
-          hidden={Boolean(readerSession)}
           className={cn(
-            "flex min-h-0 flex-1 flex-col",
-            readerSession && "hidden",
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card min-[900px]:order-first min-[900px]:w-[320px] min-[900px]:flex-none",
+            readerSession && "hidden min-[900px]:flex",
           )}
         >
-          <div className="flex shrink-0 items-center gap-2 px-6 pt-3.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pt-3.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1144,7 +1172,7 @@ export function SessionManagerPage({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="relative min-w-0 flex-1">
+            <div className="relative min-w-0 flex-1 basis-36">
               <SearchField
                 id="session-search"
                 ref={searchRef}
@@ -1307,7 +1335,7 @@ export function SessionManagerPage({
                   defaultValue: "会话列表",
                 })}
                 ref={listScrollRef}
-                className="mx-6 mt-3 min-h-0 shrink overflow-y-auto scroll-stable overscroll-contain rounded-panel border border-border bg-surface"
+                className="mx-3 my-3 min-h-0 shrink overflow-y-auto scroll-stable overscroll-contain rounded-xl border border-border bg-surface"
                 style={{ scrollPaddingTop: groupMode === "project" ? 44 : 8 }}
               >
                 {renderList()}

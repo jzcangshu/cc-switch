@@ -167,9 +167,9 @@ function searchFor(value: string) {
 }
 
 const enableButton = (name: string) =>
-  screen.getByRole("button", { name: `prompts.enableAria:${name}` });
+  screen.getByRole("switch", { name: `prompts.enableAria:${name}` });
 const disableButton = (name: string) =>
-  screen.getByRole("button", { name: `prompts.disableAria:${name}` });
+  screen.getByRole("switch", { name: `prompts.disableAria:${name}` });
 const editButton = (name: string) =>
   screen.getByRole("button", { name: `prompts.editAria:${name}` });
 

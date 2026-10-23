@@ -173,15 +173,15 @@ module.exports = {
         lg: "0.75rem",
         xl: "0.875rem",
         // v7：按钮、小控件、侧栏行 / 卡片、分段控件、输入框、弹层、通知条 / 对话框、抽屉
-        control: "6px",
-        panel: "10px",
+        control: "8px",
+        panel: "12px",
         dialog: "14px",
       },
       fontSize: {
         // v7 字体角色（AUTHORING.md「颜色与字体」）
         badge: ["11px", { lineHeight: "16px", fontWeight: "500" }],
         caption: ["12px", { lineHeight: "18px" }],
-        body: ["13px", { lineHeight: "20px" }],
+        body: ["14px", { lineHeight: "20px" }],
         strong: ["14px", { lineHeight: "20px", fontWeight: "500" }],
         section: ["15px", { lineHeight: "22px", fontWeight: "600" }],
         title: ["16px", { lineHeight: "24px", fontWeight: "600" }],

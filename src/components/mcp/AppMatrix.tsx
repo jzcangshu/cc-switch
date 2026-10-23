@@ -10,6 +10,7 @@ import { HoverTip } from "@/components/ui/hover-tip";
 import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { SearchField } from "@/components/ui/search-field";
 import { cn } from "@/lib/utils";
+import { APP_ICON_MAP } from "@/config/appConfig";
 
 /**
  * MCP 与 Skills 共用的「应用矩阵」：行 = 服务器 / Skill，列 = 应用。
@@ -130,17 +131,20 @@ export function MatrixCell({
             aria-hidden="true"
             className={cn(
               // 和 ui-checkbox 同一个外观：1.5px 描边、白底；开 = 主题色底 + 勾（勾从中心放大出来）
-              "flex h-4 w-4 items-center justify-center rounded-[4px] border-[1.5px] transition-colors duration-150",
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-150",
               state === "on" &&
-                "border-action bg-action text-action-fg group-hover/cell:border-action-hover group-hover/cell:bg-action-hover",
-              state === "off" &&
-                "border-border-strong bg-surface group-hover/cell:border-fg-3",
+                (app
+                  ? APP_ICON_MAP[app].activeClass
+                  : "bg-primary/10 text-primary"),
+              state === "off" && "opacity-40 hover:opacity-100 hover:bg-muted",
               state === "fail" &&
-                "border-warning bg-warning-soft text-warning-text",
+                "border border-warning bg-warning-soft text-warning-text",
             )}
           >
             {state === "fail" ? (
               <AlertTriangle className="h-3 w-3" strokeWidth={2.25} />
+            ) : app ? (
+              <AppGlyph app={app} size={16} badgeClassName="bg-background" />
             ) : (
               <Check
                 className={cn(

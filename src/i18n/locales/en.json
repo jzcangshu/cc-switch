@@ -409,12 +409,12 @@
       "quotaDisplayLeft": "Left",
       "quotaDisplayUsed": "Used",
       "quotaDisplayHelp": "Whether each quota window on provider cards, in Accounts and in the tray shows how much is left or how much is used. Balances and Credits always show what is left.",
-      "sidebarAndHeader": "Sidebar and header",
-      "visibleApps": "Apps shown in the sidebar",
+      "sidebarAndHeader": "Header and apps",
+      "visibleApps": "Apps shown in the app switcher",
       "goToApps": "Open Apps",
       "updates": "New versions of your apps",
       "checkToolUpdates": "Check for new versions of your apps at launch",
-      "checkToolUpdatesHelp": "When on, CC Switch checks your installed command-line apps for new versions each time it starts, and shows a dot on Apps in the sidebar if it finds one. Nothing is upgraded automatically.",
+      "checkToolUpdatesHelp": "When on, CC Switch checks your installed command-line apps for new versions each time it starts, and shows a dot on Apps in the app switcher if it finds one. Nothing is upgraded automatically.",
       "windowAndTerminal": "Window and terminal",
       "trayStyle": "Tray style",
       "trayStylePanel": "Panel",
@@ -526,10 +526,10 @@
     },
     "language": "Language",
     "languageHint": "Preview interface language immediately after switching, takes effect permanently after saving.",
-    "theme": "Light & dark",
+    "theme": "Theme",
     "themeHint": "Choose the appearance theme for the app, takes effect immediately.",
-    "themeLight": "Light Side of the Moon",
-    "themeDark": "Dark Side of the Moon",
+    "themeLight": "Light",
+    "themeDark": "Dark",
     "themeSystem": "System",
     "importExport": "SQL Import/Export",
     "importExportHint": "Import or export database SQL backups for migration or restore (import supports only backups exported by CC Switch).",
@@ -1274,6 +1274,8 @@
     "routeOnlySettingsHint": "The two settings below only apply in routing mode."
   },
   "sessionManager": {
+    "readerRegion": "Session reader",
+    "selectSession": "Select a session to view its contents",
     "searchPlaceholder": "Search titles, folders, first/last messages or session IDs",
     "searchSessions": "Search sessions",
     "sessionList": "Sessions",
@@ -2400,7 +2402,7 @@
       "rateHint": "Entered by hand and used only for display; costs are still recorded in USD.",
       "rateInvalid": "Enter a number greater than 0",
       "approxNote": "Hover a converted amount to see the USD value.",
-      "sidebarToday": "Sidebar \"Today\"",
+      "sidebarToday": "App switcher \"Today\"",
       "sidebarTodayItems": {
         "cost": "Cost",
         "tokens": "Tokens",
@@ -2954,7 +2956,8 @@
       "imported": "Imported the content of {{path}}; the file is unchanged",
       "importedPi": "Saved AGENTS.md to the library; the file is unchanged",
       "copied": "Copied \"{{name}}\" to {{apps}}"
-    }
+    },
+    "deleteAria": "Delete {{name}}"
   },
   "profiles": {
     "switcherAriaLabel": "Project: {{name}}",
@@ -4135,10 +4138,11 @@
     "refresh": "Refresh"
   },
   "nav": {
+    "routeServiceDown": "Routing service stopped",
     "mainLabel": "Main navigation",
     "skipToContent": "Skip to main content",
-    "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand app switcher",
+    "collapseSidebar": "Collapse app switcher",
     "appsGroup": "Apps",
     "today": "Today {{value}}",
     "todayRequests": "{{value}} req",
@@ -4149,7 +4153,7 @@
     "prompts": "Prompts",
     "sessions": "Sessions",
     "apps": "Apps",
-    "appsTitle": "Apps: install, upgrade, choose which show in the sidebar",
+    "appsTitle": "Apps: install, upgrade, choose which show in the app switcher",
     "appsHasUpdate": "Apps · updates available",
     "settings": "Settings",
     "settingsHasUpdate": "Settings · a new CC Switch version is available",
@@ -4161,11 +4165,11 @@
     "back": "Back"
   },
   "appsPage": {
-    "showInSidebar": "Show {{name}} in the sidebar",
+    "showInSidebar": "Show {{name}} in the app switcher",
     "lastChecked": "Last checked {{time}}",
     "neverChecked": "Not checked for updates yet",
     "helpTitle": "Apps",
-    "helpBody": "Install and upgrade command-line apps here, and choose which ones show in the sidebar.",
+    "helpBody": "Install and upgrade command-line apps here, and choose which ones show in the app switcher.",
     "checking": "Checking…",
     "checkUpdates": "Check for updates",
     "moreActions": "More actions",
@@ -4173,7 +4177,7 @@
     "columnApp": "App",
     "columnVersion": "Version",
     "columnVisible": "Show",
-    "visibleHelp": "When off, the app no longer appears in the sidebar, the tray menu, the MCP / Skills app columns, or the app pickers on Prompts and Sessions. It is only hidden: its providers, MCP servers and other settings stay, and its own config files are left untouched.",
+    "visibleHelp": "When off, the app no longer appears in the app switcher, the tray menu, the MCP / Skills app columns, or the app pickers on Prompts and Sessions. It is only hidden: its providers, MCP servers and other settings stay, and its own config files are left untouched.",
     "desktopHelp": "Claude Desktop is a desktop app and can't be installed or upgraded here; CC Switch connects to it through its config file.",
     "desktopUnsupported": "Not supported on this system",
     "desktopConnected": "Connected",
@@ -4202,7 +4206,7 @@
     "viewSessions": "View sessions",
     "configDirectory": "Config directory",
     "installAndUpgrade": "Install and upgrade",
-    "hideFromSidebar": "Hide from sidebar",
+    "hideFromSidebar": "Hide from app switcher",
     "providers": "Providers",
     "workspace": "Workspace",
     "openclawConfig": "Config",
@@ -4827,7 +4831,7 @@
   },
   "newLayoutNotice": {
     "title": "CC Switch has a new look",
-    "body": "This version redesigns the interface, so a few things have moved:\n• Modes now sit at the top of each app page\n• Usage and Accounts are in the sidebar\nSee the release notes for everything that changed.",
+    "body": "App switching is back at the top, with familiar tools on the right and six settings tabs.\n\nDirect, routing and aggregation use the V4 engine. Viewing a mode does not change the connection. Aggregation, app management and the new session features remain available.",
     "viewReleaseNotes": "View release notes",
     "confirm": "Got it"
   },

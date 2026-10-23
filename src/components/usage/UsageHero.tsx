@@ -1,9 +1,6 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react";
 import { useUsageSummaryByApp } from "@/lib/query/usage";
 import { HelpTip } from "@/components/ui/help-tip";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   fmtInt,
@@ -95,7 +92,7 @@ function MetricCard({
   title?: string;
 }) {
   return (
-    <div className="flex h-[76px] min-w-0 flex-col justify-between rounded-panel border border-border bg-surface px-3.5 py-3">
+    <div className="flex min-h-[76px] min-w-0 flex-col justify-between px-3.5 py-3">
       <div className="flex min-w-0 items-center gap-0.5">
         <span className="truncate text-caption text-fg-2">{label}</span>
         {help && (
@@ -161,7 +158,6 @@ export function UsageHero({
   const { t, i18n } = useTranslation();
   const { money, moneyTitle } = useMoneyFormat();
   const locale = getLocaleFromLanguage(getResolvedLang(i18n));
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const { data, isLoading } = useUsageSummaryByApp(
     range,
@@ -202,103 +198,81 @@ export function UsageHero({
   return (
     <section
       aria-label={t("usage.metrics.label")}
-      className="flex shrink-0 flex-col gap-2.5"
+      className="shrink-0 rounded-xl glass-card p-5 shadow-sm"
     >
-      <div className="flex items-start gap-2.5">
-        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-          <div
-            className={cn(
-              "grid gap-2.5",
-              compact ? "grid-cols-2" : "grid-cols-4",
-            )}
-          >
-            <MetricCard
-              label={t("usage.totalCost")}
-              value={
-                placeholder ?? (totalCost == null ? "--" : money(totalCost, 2))
-              }
-              title={totalCost == null ? undefined : moneyTitle(totalCost, 6)}
-            />
-            <MetricCard
-              label={t("usage.totalRequests")}
-              value={placeholder ?? fmtInt(requests, locale)}
-            />
-            <MetricCard
-              label={t("usage.realTotal")}
-              help={{
-                title: t("usage.metrics.realTotalHelpTitle"),
-                body: t("usage.metrics.realTotalHelp"),
-              }}
-              value={placeholder ?? formatTokensCompact(realTotal, locale)}
-              title={fmtInt(realTotal, locale)}
-            />
-            <MetricCard
-              label={t("usage.cacheHitRate")}
-              help={{
-                title: t("usage.metrics.hitRateHelpTitle"),
-                body: t("usage.metrics.hitRateHelp"),
-              }}
-              value={placeholder ?? formatHitRatePercent(hitRate)}
-            />
-          </div>
-          {moreOpen && (
-            <div
-              className={cn(
-                "grid gap-2.5",
-                compact ? "grid-cols-2" : "grid-cols-4",
-              )}
-            >
-              <MiniMetric
-                label={t("usage.freshInput")}
-                value={formatTokensCompact(input, locale)}
-                title={fmtInt(input, locale)}
-              />
-              <MiniMetric
-                label={t("usage.output")}
-                value={formatTokensCompact(output, locale)}
-                title={fmtInt(output, locale)}
-              />
-              <MiniMetric
-                label={t("usage.cacheWrite")}
-                value={
-                  cacheWriteState === "na"
-                    ? "N/A"
-                    : formatTokensCompact(cacheWrite, locale)
-                }
-                title={
-                  cacheWriteState === "na" ? undefined : fmtInt(cacheWrite)
-                }
-                muted={cacheWriteState === "na"}
-                help={
-                  cacheWriteHelp
-                    ? { title: t("usage.cacheWrite"), body: cacheWriteHelp }
-                    : undefined
-                }
-              />
-              <MiniMetric
-                label={t("usage.cacheRead")}
-                value={formatTokensCompact(cacheRead, locale)}
-                title={fmtInt(cacheRead, locale)}
-              />
-            </div>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="quiet"
-          size="regular"
-          aria-expanded={moreOpen}
-          onClick={() => setMoreOpen((open) => !open)}
-          className="shrink-0 gap-1 pe-2 ps-2.5 text-fg-2"
-        >
-          {t("usage.metrics.more")}
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 transition-transform duration-150",
-              moreOpen && "rotate-180",
-            )}
-          />
-        </Button>
+      <div className="grid grid-cols-3 gap-4 border-b border-border pb-3">
+        <MetricCard
+          label={t("usage.totalCost")}
+          value={
+            placeholder ?? (totalCost == null ? "--" : money(totalCost, 2))
+          }
+          title={totalCost == null ? undefined : moneyTitle(totalCost, 6)}
+        />
+        <MetricCard
+          label={t("usage.totalRequests")}
+          value={placeholder ?? fmtInt(requests, locale)}
+        />
+        <MetricCard
+          label={t("usage.successRate")}
+          value={
+            placeholder ??
+            formatHitRatePercent((summary?.successRate ?? 0) / 100)
+          }
+        />
+      </div>
+      <div
+        className={cn(
+          "grid gap-4 pt-4",
+          compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-6",
+        )}
+      >
+        <MiniMetric
+          label={t("usage.realTotal")}
+          value={placeholder ?? formatTokensCompact(realTotal, locale)}
+          title={fmtInt(realTotal, locale)}
+          help={{
+            title: t("usage.metrics.realTotalHelpTitle"),
+            body: t("usage.metrics.realTotalHelp"),
+          }}
+        />
+        <MiniMetric
+          label={t("usage.freshInput")}
+          value={placeholder ?? formatTokensCompact(input, locale)}
+          title={fmtInt(input, locale)}
+        />
+        <MiniMetric
+          label={t("usage.output")}
+          value={placeholder ?? formatTokensCompact(output, locale)}
+          title={fmtInt(output, locale)}
+        />
+        <MiniMetric
+          label={t("usage.cacheWrite")}
+          value={
+            cacheWriteState === "na"
+              ? "N/A"
+              : (placeholder ?? formatTokensCompact(cacheWrite, locale))
+          }
+          title={cacheWriteState === "na" ? undefined : fmtInt(cacheWrite)}
+          muted={cacheWriteState === "na"}
+          help={
+            cacheWriteHelp
+              ? { title: t("usage.cacheWrite"), body: cacheWriteHelp }
+              : undefined
+          }
+        />
+        <MiniMetric
+          label={t("usage.cacheRead")}
+          value={placeholder ?? formatTokensCompact(cacheRead, locale)}
+          title={fmtInt(cacheRead, locale)}
+        />
+        <MiniMetric
+          label={t("usage.cacheHitRate")}
+          value={placeholder ?? formatHitRatePercent(hitRate)}
+          help={{
+            title: t("usage.metrics.hitRateHelpTitle"),
+            body: t("usage.metrics.hitRateHelp"),
+          }}
+        />
       </div>
     </section>
   );

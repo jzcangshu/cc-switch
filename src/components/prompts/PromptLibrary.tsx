@@ -78,7 +78,7 @@ export function PromptLibrary({
   return (
     <ul
       aria-label={listLabel}
-      className="m-0 min-h-0 shrink list-none overflow-y-auto scroll-stable rounded-panel border border-border bg-surface p-0"
+      className="m-0 min-h-0 shrink list-none space-y-3 overflow-y-auto scroll-stable p-0.5"
     >
       {filtered.map(([id, prompt], index) => {
         const summary =

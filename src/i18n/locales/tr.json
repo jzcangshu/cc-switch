@@ -379,12 +379,12 @@
       "quotaDisplayLeft": "Kalan",
       "quotaDisplayUsed": "Kullanılan",
       "quotaDisplayHelp": "Sağlayıcı kartlarındaki, Hesaplar'daki ve tepsideki her kota penceresinin ne kadar kaldığını veya ne kadar kullanıldığını gösterip göstermediği. Bakiyeler ve Krediler her zaman kalanları gösterir.",
-      "sidebarAndHeader": "Kenar çubuğu ve başlık",
-      "visibleApps": "Kenar çubuğunda gösterilen uygulamalar",
+      "sidebarAndHeader": "Başlık ve uygulamalar",
+      "visibleApps": "Uygulama değiştiricinda gösterilen uygulamalar",
       "goToApps": "Uygulamaları seç",
       "updates": "Uygulamalarınızın yeni sürümleri",
       "checkToolUpdates": "Açılışta uygulama güncellemelerini kontrol et",
-      "checkToolUpdatesHelp": "CC Switch açıkken, her başlatıldığında yüklü komut satırı uygulamalarınızı yeni sürümler için kontrol eder ve bulursa kenar çubuğunda Uygulamalar üzerinde bir nokta gösterir. Hiçbir şey otomatik olarak yükseltilmez.",
+      "checkToolUpdatesHelp": "CC Switch açıkken, her başlatıldığında yüklü komut satırı uygulamalarınızı yeni sürümler için kontrol eder ve bulursa uygulama değiştiricide Uygulamalar üzerinde bir nokta gösterir. Hiçbir şey otomatik olarak yükseltilmez.",
       "windowAndTerminal": "Pencere ve terminal",
       "minimizeToTrayHelp": "Açık olduğunda, kapat düğmesi yalnızca pencereyi gizler ve CC Switch sistem tepsisinde çalışmaya devam eder (hafif mod tepsi menüsündedir). Kapatıldığında kapatma düğmesi kapanır.",
       "terminalHelp": "Sağlayıcı kartlarındaki “Açık terminal”in kullandığı terminal. Mevcut değilse sistemin varsayılan terminali kullanılır."
@@ -1238,6 +1238,8 @@
     "routeOnlySettingsHint": "Aşağıdaki iki ayar yalnızca yönlendirme modunda geçerlidir."
   },
   "sessionManager": {
+    "readerRegion": "Oturum okuyucu",
+    "selectSession": "İçeriğini görmek için bir oturum seçin",
     "searchPlaceholder": "Başlıkları, klasörleri, ilk/son mesajları veya oturum kimliklerini arayın",
     "searchSessions": "Oturumları ara",
     "sessionList": "Oturumlar",
@@ -2868,7 +2870,8 @@
       "imported": "{{path}}'nin içeriği içe aktarıldı; dosya değişmedi",
       "importedPi": "AGENTS.md kütüphaneye kaydedildi; dosya değişmedi",
       "copied": "\"{{name}}\" {{apps}}'ye kopyalandı"
-    }
+    },
+    "deleteAria": "{{name}} sil"
   },
   "profiles": {
     "switcherAriaLabel": "Proje: {{name}}",
@@ -4036,10 +4039,11 @@
     "refresh": "Yenile"
   },
   "nav": {
+    "routeServiceDown": "Yönlendirme hizmeti durdu",
     "mainLabel": "Ana gezinme",
     "skipToContent": "Ana içeriğe atla",
-    "expandSidebar": "Kenar çubuğunu genişlet",
-    "collapseSidebar": "Kenar çubuğunu daralt",
+    "expandSidebar": "Uygulama değiştiricinu genişlet",
+    "collapseSidebar": "Uygulama değiştiricinu daralt",
     "appsGroup": "Uygulamalar",
     "today": "Bugün {{value}}",
     "usage": "Kullanım",
@@ -4048,7 +4052,7 @@
     "prompts": "İstemler",
     "sessions": "Oturumlar",
     "apps": "Uygulamalar",
-    "appsTitle": "Uygulamalar: yükleyin, yükseltin, kenar çubuğunda hangilerinin gösterileceğini seçin",
+    "appsTitle": "Uygulamalar: yükleyin, yükseltin, uygulama değiştiricide hangilerinin gösterileceğini seçin",
     "appsHasUpdate": "Uygulamalar · güncellemeler mevcut",
     "settings": "Ayarlar",
     "settingsHasUpdate": "Ayarlar · yeni bir CC Switch sürümü mevcut",
@@ -4062,11 +4066,11 @@
     "back": "Geri"
   },
   "appsPage": {
-    "showInSidebar": "Kenar çubuğunda {{name}}'yi göster",
+    "showInSidebar": "Uygulama değiştiricinda {{name}}'yi göster",
     "lastChecked": "Son kontrol: {{time}}",
     "neverChecked": "Güncellemeler henüz kontrol edilmedi",
     "helpTitle": "Uygulamalar",
-    "helpBody": "Komut satırı uygulamalarını buradan yükleyip yükseltin ve kenar çubuğunda hangilerinin gösterileceğini seçin.",
+    "helpBody": "Komut satırı uygulamalarını buradan yükleyip yükseltin ve uygulama değiştiricide hangilerinin gösterileceğini seçin.",
     "checking": "Kontrol ediliyor…",
     "checkUpdates": "Güncellemeleri kontrol edin",
     "moreActions": "Daha fazla işlem",
@@ -4074,7 +4078,7 @@
     "columnApp": "Uygulama",
     "columnVersion": "Sürüm",
     "columnVisible": "Göster",
-    "visibleHelp": "Kapalıyken uygulama artık kenar çubuğunda, tepsi menüsünde, MCP / Skills uygulama sütunlarında veya İstemler ve Oturumlar'daki uygulama seçicilerde görünmez. Yalnızca gizlenir: sağlayıcıları, MCP sunucuları ve diğer ayarları yerinde kalır, kendi yapılandırma dosyalarına da dokunulmaz.",
+    "visibleHelp": "Kapalıyken uygulama artık uygulama değiştiricide, tepsi menüsünde, MCP / Skills uygulama sütunlarında veya İstemler ve Oturumlar'daki uygulama seçicilerde görünmez. Yalnızca gizlenir: sağlayıcıları, MCP sunucuları ve diğer ayarları yerinde kalır, kendi yapılandırma dosyalarına da dokunulmaz.",
     "desktopHelp": "Claude Desktop bir masaüstü uygulamasıdır ve buraya yüklenemez veya yükseltilemez; CC Switch, yapılandırma dosyası aracılığıyla ona bağlanır.",
     "desktopUnsupported": "Bu sistemde desteklenmiyor",
     "desktopConnected": "Bağlı",
@@ -4101,7 +4105,7 @@
     "viewSessions": "Oturumları görüntüle",
     "configDirectory": "Yapılandırma dizini",
     "installAndUpgrade": "Yükleme ve yükseltme",
-    "hideFromSidebar": "Kenar çubuğundan gizle",
+    "hideFromSidebar": "Uygulama değiştiricindan gizle",
     "providers": "Sağlayıcılar",
     "workspace": "Çalışma alanı",
     "openclawConfig": "Yapılandırma",
@@ -4702,7 +4706,7 @@
   },
   "newLayoutNotice": {
     "title": "CC Switch yeni bir görünüme sahip",
-    "body": "Bu sürüm, arayüzü yeniden tasarladığı için birkaç şey değişti:\n• Modlar artık her uygulama sayfasının üst kısmında yer alıyor\n• Kullanım ve Hesaplar kenar çubuğundadır\nDeğişen her şey için sürüm notlarına bakın.",
+    "body": "Uygulama geçişi üstte, sık kullanılan araçlar sağda ve ayarlar altı tanıdık sekmede.\n\nDoğrudan bağlantı, yönlendirme ve toplama V4 motorunu kullanır. Bir modu görüntülemek bağlantıyı değiştirmez. Toplama, uygulama yönetimi ve yeni oturum özellikleri korunur.",
     "viewReleaseNotes": "Sürüm notlarını görüntüle",
     "confirm": "Anladım"
   },

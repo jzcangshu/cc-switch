@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { isLinux } from "@/lib/platform";
+import { AppVisibilitySettings } from "@/components/settings/AppVisibilitySettings";
 import { TerminalSelect } from "@/components/settings/TerminalSettings";
 import {
   SettingsBlock,
@@ -46,6 +47,12 @@ export function GeneralSection({
 
   return (
     <>
+      <SettingsCard className="p-4">
+        <AppVisibilitySettings
+          settings={settings}
+          onChange={(updates) => void onAutoSave(updates)}
+        />
+      </SettingsCard>
       <SettingsBlock title={t("settings.general.appearance")}>
         <SettingsCard>
           <SettingsRow
@@ -134,7 +141,7 @@ export function GeneralSection({
       <SettingsBlock title={t("settings.general.sidebarAndHeader")}>
         <SettingsCard>
           <SettingsRow
-            label={t("settings.general.visibleApps")}
+            label={t("appPage.installAndUpgrade")}
             control={
               <Button variant="quiet" size="compact" onClick={onOpenApps}>
                 {t("settings.general.goToApps")}

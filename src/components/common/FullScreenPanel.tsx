@@ -1,7 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { HoverTip } from "@/components/ui/hover-tip";
@@ -171,13 +171,13 @@ export const FullScreenPanel: React.FC<FullScreenPanelProps> = ({
               <HoverTip content={backLabel ?? t("common.back")}>
                 <Button
                   type="button"
-                  variant="quiet"
-                  size="icon-compact"
-                  className="h-8 w-8"
+                  variant="outline"
+                  size="icon"
+                  className="rounded-lg"
                   onClick={onClose}
                   aria-label={backLabel ?? t("common.back")}
                 >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
               </HoverTip>
             }
@@ -193,7 +193,7 @@ export const FullScreenPanel: React.FC<FullScreenPanelProps> = ({
           </div>
 
           {footer && (
-            <div className="flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border px-6">
+            <div className="flex h-16 shrink-0 items-center justify-end gap-3 border-t border-border px-6">
               {footer}
             </div>
           )}

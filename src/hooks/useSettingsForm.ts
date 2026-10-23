@@ -3,6 +3,17 @@ import { useTranslation } from "react-i18next";
 import { useSettingsQuery } from "@/lib/query";
 import type { Settings } from "@/types";
 
+export const DIRECTORY_KEYS = [
+  "claudeConfigDir",
+  "codexConfigDir",
+  "geminiConfigDir",
+  "grokConfigDir",
+  "opencodeConfigDir",
+  "openclawConfigDir",
+  "hermesConfigDir",
+  "piConfigDir",
+] as const;
+
 type Language = "zh" | "zh-TW" | "en" | "ja" | "tr";
 
 export type SettingsFormState = Omit<Settings, "language"> & {
@@ -81,6 +92,7 @@ export function useSettingsForm(): UseSettingsFormResult {
   );
 
   const initialLanguageRef = useRef<Language>("zh");
+  const savedSettingsRef = useRef<SettingsFormState | null>(null);
 
   const readPersistedLanguage = useCallback((): Language => {
     if (typeof window !== "undefined") {
@@ -133,7 +145,18 @@ export function useSettingsForm(): UseSettingsFormResult {
       language: normalizedLanguage,
     };
 
-    setSettingsState(normalized);
+    const previousSaved = savedSettingsRef.current;
+    savedSettingsRef.current = normalized;
+    setSettingsState((current) => {
+      if (!current || !previousSaved) return normalized;
+      const next = { ...normalized };
+      for (const key of DIRECTORY_KEYS) {
+        if (sanitizeDir(current[key]) !== sanitizeDir(previousSaved[key])) {
+          next[key] = current[key];
+        }
+      }
+      return next;
+    });
     initialLanguageRef.current = normalizedLanguage;
     syncLanguage(normalizedLanguage);
   }, [data, readPersistedLanguage, syncLanguage]);
@@ -203,6 +226,7 @@ export function useSettingsForm(): UseSettingsFormResult {
         language: normalizedLanguage,
       };
 
+      savedSettingsRef.current = normalized;
       setSettingsState(normalized);
       syncLanguage(initialLanguageRef.current);
     },

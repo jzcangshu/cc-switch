@@ -963,10 +963,11 @@ export function ClaudeDesktopProviderForm({
       <form
         id="provider-form"
         onSubmit={form.handleSubmit(handleSubmit)}
-        className="space-y-6"
+        className="glass space-y-6 rounded-xl border border-white/10 p-6"
       >
         {!initialData && (
           <ProviderPresetSelector
+            appId="claude-desktop"
             selectedPresetId={selectedPresetId}
             presetEntries={presetEntries}
             presetCategoryLabels={presetCategoryLabels}

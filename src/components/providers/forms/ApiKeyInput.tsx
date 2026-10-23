@@ -13,10 +13,6 @@ interface ApiKeyInputProps {
   required?: boolean;
   label?: string;
   id?: string;
-  /** 标签行右侧（「获取 API Key ↗」） */
-  labelAside?: React.ReactNode;
-  /** 输入框下方的说明文字 */
-  hint?: React.ReactNode;
 }
 
 const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
@@ -27,26 +23,21 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   required = false,
   label = "API Key",
   id = "apiKey",
-  labelAside,
-  hint,
 }) => {
   const { t } = useTranslation();
   const [showKey, setShowKey] = useState(false);
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <label
-          htmlFor={id}
-          className={cn(
-            "block text-caption font-medium text-fg-1",
-            required && REQUIRED_LABEL,
-          )}
-        >
-          {label}
-        </label>
-        {labelAside}
-      </div>
+      <label
+        htmlFor={id}
+        className={cn(
+          "block text-sm font-medium text-foreground",
+          required && REQUIRED_LABEL,
+        )}
+      >
+        {label}
+      </label>
       <div className="relative">
         <input
           type={showKey ? "text" : "password"}
@@ -65,7 +56,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
           spellCheck={false}
           className={cn(
             fieldClass,
-            "h-8 pe-10",
+            "h-9 pe-10",
             disabled && "border-border bg-subtle text-fg-3 opacity-100",
           )}
         />
@@ -80,7 +71,6 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
           </button>
         )}
       </div>
-      {hint && <p className="text-caption text-fg-2">{hint}</p>}
     </div>
   );
 };

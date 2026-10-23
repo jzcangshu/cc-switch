@@ -27,34 +27,41 @@ const EDIT_CONTROL_SELECTOR = [
   '[role="menuitemcheckbox"]',
   '[role="menuitemradio"]',
   "[aria-pressed]",
+  "[data-unsaved-change]",
 ].join(",");
 
 /**
  * 挂到编辑器内容区：文字输入、原生选择变化、以及点到上面那些控件时登记为有未保存改动。
  * React 的合成事件沿组件树冒泡，渲染到 body 的下拉选项也能收到。
- * `enabled` 为 false 时不登记（例如新增供应商还在选预设）。
+ * `enabled` 为 false 时不登记。所有事件都尊重 data-unsaved-ignore；
+ * 使用 portal 的纯显示控件要把该标记带到弹层自身。
+ * hasChanges 供不产生 DOM input 的富文本编辑命令按受控内容登记。
  */
-export function useUnsavedChangesTracker(enabled = true) {
+export function useUnsavedChangesTracker(enabled = true, hasChanges = false) {
   const token = useRef({}).current;
   useEffect(() => {
     if (!enabled) dirtyEditors.delete(token);
+    else if (hasChanges) dirtyEditors.add(token);
     return () => {
       dirtyEditors.delete(token);
     };
-  }, [enabled, token]);
+  }, [enabled, hasChanges, token]);
 
-  const markDirty = useCallback(() => {
-    if (enabled) dirtyEditors.add(token);
-  }, [enabled, token]);
+  const markDirty = useCallback(
+    (event: SyntheticEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-unsaved-ignore]"))
+        return;
+      if (enabled) dirtyEditors.add(token);
+    },
+    [enabled, token],
+  );
 
   const onClickCapture = useCallback(
     (event: SyntheticEvent) => {
       const target = event.target as Element | null;
-      if (
-        target?.closest?.(EDIT_CONTROL_SELECTOR) &&
-        !target.closest("[data-unsaved-ignore]")
-      ) {
-        markDirty();
+      if (target?.closest?.(EDIT_CONTROL_SELECTOR)) {
+        markDirty(event);
       }
     },
     [markDirty],

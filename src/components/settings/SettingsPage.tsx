@@ -48,6 +48,7 @@ import {
   SettingsRow,
 } from "@/components/settings/SettingsLayout";
 import { useSettings } from "@/hooks/useSettings";
+import { DIRECTORY_KEYS } from "@/hooks/useSettingsForm";
 import { useImportExport } from "@/hooks/useImportExport";
 import type { SettingsFormState } from "@/hooks/useSettings";
 import { isTextEditableTarget } from "@/utils/domUtils";
@@ -66,6 +67,9 @@ const SECTION_ICON: Record<
 
 interface SettingsPageProps {
   section: SettingsSection;
+  hideHeader?: boolean;
+  active?: boolean;
+  onUnsavedDirectoriesChange?: (dirty: boolean) => void;
   /** 从应用页的「配置目录」进入时，定位到该应用的配置区域。 */
   appConfigScrollTarget?: AppId;
   onImportSuccess?: () => void | Promise<void>;
@@ -81,6 +85,9 @@ interface SettingsPageProps {
  */
 export function SettingsPage({
   section,
+  hideHeader = false,
+  active = true,
+  onUnsavedDirectoriesChange,
   appConfigScrollTarget,
   onImportSuccess,
   onOpenApps,
@@ -108,6 +115,19 @@ export function SettingsPage({
     acknowledgeRestart,
   } = useSettings();
   const { data: savedSettings } = useSettingsQuery();
+  const directoriesDirty =
+    settings !== null &&
+    (DIRECTORY_KEYS.some(
+      (key) =>
+        (settings[key]?.trim() || undefined) !==
+        (savedSettings?.[key]?.trim() || undefined),
+    ) ||
+      (appConfigDir?.trim() || undefined) !==
+        (initialAppConfigDir?.trim() || undefined));
+  useEffect(() => {
+    onUnsavedDirectoriesChange?.(directoriesDirty);
+    return () => onUnsavedDirectoriesChange?.(false);
+  }, [directoriesDirty, onUnsavedDirectoriesChange]);
 
   const {
     selectedFile,
@@ -360,13 +380,11 @@ export function SettingsPage({
   const isBusy = useMemo(() => isLoading && !settings, [isLoading, settings]);
   const SectionIcon = SECTION_ICON[section];
 
-  const appConfigDirty =
-    (appConfigDir?.trim() || undefined) !==
-    (initialAppConfigDir?.trim() || undefined);
-
-  const renderSection = () => {
+  const advanced =
+    section === "appConfig" || section === "data" || section === "network";
+  const renderSection = (target: SettingsSection = section) => {
     if (!settings) return null;
-    switch (section) {
+    switch (target) {
       case "general":
         return (
           <GeneralSection
@@ -381,12 +399,10 @@ export function SettingsPage({
             settings={settings}
             savedSettings={savedSettings}
             resolvedDirs={resolvedDirs}
-            isSaving={isSaving}
             onAutoSave={handleAutoSave}
             onDirectoryChange={updateDirectory}
             onBrowseDirectory={browseDirectory}
             onResetDirectory={resetDirectory}
-            onSaveDirectories={handleSave}
           />
         );
       case "routing":
@@ -394,6 +410,7 @@ export function SettingsPage({
       case "network":
         return (
           <SettingsBlock
+            collapsible
             title={t("settings.advanced.globalProxy.title")}
             help={{
               title: t("settings.advanced.globalProxy.title"),
@@ -408,24 +425,7 @@ export function SettingsPage({
       case "data":
         return (
           <>
-            <SettingsBlock
-              title={t("settings.data.location")}
-              actions={
-                appConfigDirty ? (
-                  <Button
-                    variant="solid"
-                    size="compact"
-                    disabled={isSaving}
-                    onClick={() => void handleSave()}
-                  >
-                    {isSaving && (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    )}
-                    {t("common.save")}
-                  </Button>
-                ) : null
-              }
-            >
+            <SettingsBlock collapsible title={t("settings.data.location")}>
               <SettingsCard>
                 <SettingsRow
                   label={t("settings.appConfigDir")}
@@ -447,6 +447,7 @@ export function SettingsPage({
               </SettingsCard>
             </SettingsBlock>
             <SettingsBlock
+              collapsible
               title={t("settings.advanced.data.title")}
               help={{
                 title: t("settings.advanced.data.title"),
@@ -468,6 +469,7 @@ export function SettingsPage({
               </div>
             </SettingsBlock>
             <SettingsBlock
+              collapsible
               title={t("settings.advanced.backup.title")}
               help={{
                 title: t("settings.advanced.backup.title"),
@@ -483,6 +485,7 @@ export function SettingsPage({
               </div>
             </SettingsBlock>
             <SettingsBlock
+              collapsible
               title={t("settings.advanced.cloudSync.title")}
               help={{
                 title: t("settings.advanced.cloudSync.title"),
@@ -499,6 +502,7 @@ export function SettingsPage({
               </div>
             </SettingsBlock>
             <SettingsBlock
+              collapsible
               title={t("settings.advanced.logConfig.title")}
               help={{
                 title: t("settings.advanced.logConfig.title"),
@@ -528,13 +532,15 @@ export function SettingsPage({
 
   return (
     <>
-      <AppPageHeader
-        icon={<SectionIcon className="h-5 w-5" strokeWidth={1.5} />}
-        title={t(`settings.sections.${section}`)}
-      />
+      {!hideHeader && (
+        <AppPageHeader
+          icon={<SectionIcon className="h-5 w-5" strokeWidth={1.5} />}
+          title={t(`settings.sections.${section}`)}
+        />
+      )}
       <div
         ref={scrollRef}
-        id="main-content"
+        id={active ? "main-content" : undefined}
         className="min-h-0 flex-1 overflow-y-auto scroll-stable"
       >
         {isBusy ? (
@@ -542,10 +548,38 @@ export function SettingsPage({
             <Loader2 className="h-8 w-8 animate-spin text-fg-3" />
           </div>
         ) : (
-          <SettingsBody>{renderSection()}</SettingsBody>
+          <SettingsBody>
+            {advanced ? (
+              <>
+                <SettingsBlock
+                  key={appConfigScrollTarget ?? "directories"}
+                  title={t("settings.sections.appConfig")}
+                  collapsible
+                  initiallyOpen={section === "appConfig"}
+                >
+                  {renderSection("appConfig")}
+                </SettingsBlock>
+                {renderSection("data")}
+                {renderSection("network")}
+              </>
+            ) : (
+              renderSection()
+            )}
+          </SettingsBody>
         )}
       </div>
 
+      {advanced && (
+        <div className="flex h-16 shrink-0 items-center justify-end border-t border-border px-6">
+          <Button
+            disabled={isSaving || !directoriesDirty}
+            onClick={() => void handleSave()}
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t("common.save")}
+          </Button>
+        </div>
+      )}
       <Dialog
         open={showRestartPrompt}
         onOpenChange={(open) => !open && handleRestartLater()}

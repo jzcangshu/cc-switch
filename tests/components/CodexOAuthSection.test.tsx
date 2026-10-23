@@ -194,7 +194,7 @@ describe("CodexOAuthSection", () => {
     expect(dialog).toHaveTextContent("Claude Desktop：ChatGPT Desktop");
 
     const confirm = screen.getByRole("button", { name: "删除账号" });
-    expect(confirm.className).toContain("bg-danger");
+    expect(confirm.className).toContain("bg-red-500");
     await user.click(confirm);
     expect(authResult.removeAccount).toHaveBeenCalledWith("account-1");
   });

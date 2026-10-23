@@ -129,6 +129,7 @@ const isEditableTarget = (target: EventTarget | null) => {
 };
 
 export interface SessionReaderProps {
+  embedded?: boolean;
   session: SessionMeta;
   appName: string;
   transcript: SessionTranscriptResult;
@@ -153,6 +154,7 @@ export interface SessionReaderProps {
  * 流式加载状态、虚拟列表、查找与跳转。turn 结构与折叠规则在 turns.ts，各行由独立组件渲染。
  */
 export function SessionReader({
+  embedded = false,
   session,
   appName,
   transcript,
@@ -730,12 +732,13 @@ export function SessionReader({
     <ReaderContext.Provider value={context}>
       <div
         data-reader-style={style.id}
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         style={
           { "--reader-accent": `var(${style.accentVar})` } as CSSProperties
         }
       >
         <SessionReaderHeader
+          embedded={embedded}
           session={session}
           title={title}
           appName={appName}

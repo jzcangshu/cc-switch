@@ -12,8 +12,6 @@ import type { ProviderFormValues } from "@/components/providers/forms/ProviderFo
 import { codexProviderPresets } from "@/config/codexProviderPresets";
 import { providersApi } from "@/lib/api";
 import type { ProviderEditorView } from "@/lib/api/providers";
-import { usePresetStep } from "@/components/providers/forms/presetStep";
-import { createPortal } from "react-dom";
 
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => (
@@ -60,11 +58,6 @@ vi.mock("@/components/providers/forms/ProviderForm", () => ({
       draft?: Record<string, unknown>,
     ) => void;
   }) => {
-    const presetStep = usePresetStep();
-    const registerSelector = presetStep?.registerSelector;
-    useEffect(() => {
-      if (mockHasPresetSelector) return registerSelector?.();
-    }, [registerSelector]);
     useEffect(() => {
       if (onSubmitReadyChange) {
         submitReadyCallbacks.push(onSubmitReadyChange);
@@ -82,14 +75,7 @@ vi.mock("@/components/providers/forms/ProviderForm", () => ({
           onSubmit(mockFormValues);
         }}
       >
-        {mockHasPresetSelector && presetStep?.step === "pick" && presetStep.host
-          ? createPortal(
-              <button type="button" onClick={() => presetStep.setStep("form")}>
-                pick-preset
-              </button>,
-              presetStep.host,
-            )
-          : null}
+        {mockHasPresetSelector && <button type="button">pick-preset</button>}
         <button
           type="button"
           onClick={() => onManageAuthAccounts?.("codex_oauth")}
@@ -129,7 +115,7 @@ describe("AddProviderDialog", () => {
     };
   });
 
-  it("opens without a fade while Claude's live base loads, then shows the picker", async () => {
+  it("loads Claude's live base before showing the preset picker and form together", async () => {
     let resolveView!: (view: ProviderEditorView) => void;
     vi.spyOn(providersApi, "getEditorView").mockReturnValue(
       new Promise((resolve) => {
@@ -151,6 +137,7 @@ describe("AddProviderDialog", () => {
         .closest(".bg-app"),
     ).toHaveStyle({ opacity: "1" });
     expect(screen.getByText("common.loading")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "common.add" })).toBeDisabled();
     expect(document.getElementById("provider-form")).toBeNull();
 
     await act(async () => {
@@ -164,9 +151,10 @@ describe("AddProviderDialog", () => {
     expect(
       screen.getByRole("button", { name: "common.add" }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "providerPreset.backToPick" }),
-    );
+    expect(screen.getByRole("button", { name: "manage-auth" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "providerPreset.backToPick" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "pick-preset" }),
     ).toBeInTheDocument();

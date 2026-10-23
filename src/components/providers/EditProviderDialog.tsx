@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
@@ -391,7 +391,11 @@ export function EditProviderDialog({
             size="regular"
             disabled={isFormSubmitting || !isFormReady}
           >
-            {isFormSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isFormSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             {t("common.save")}
           </Button>
         </>

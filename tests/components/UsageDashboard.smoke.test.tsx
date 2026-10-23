@@ -242,13 +242,7 @@ describe("UsageDashboard (smoke)", () => {
     expect(screen.getByText("93.3%")).toBeInTheDocument();
     expect(screen.getByText("usage.trend.title")).toBeInTheDocument();
 
-    // 更多指标
-    await user.click(
-      screen.getByRole("button", { name: "usage.metrics.more" }),
-    );
-    expect(
-      screen.getByRole("button", { name: "usage.metrics.more" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    // 第三版概览默认展开全部指标。
     expect(screen.getByText("usage.cacheWrite")).toBeInTheDocument();
 
     // 供应商：汇总速度 92000 / 1000 s = 92 tok/s

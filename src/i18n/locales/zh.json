@@ -409,12 +409,12 @@
       "quotaDisplayLeft": "剩余",
       "quotaDisplayUsed": "已用",
       "quotaDisplayHelp": "供应商卡片、授权中心和托盘里，各档额度写还剩多少还是已经用了多少。余额和 Credits 始终写剩下的。",
-      "sidebarAndHeader": "侧栏与页头",
-      "visibleApps": "在侧栏显示哪些应用",
+      "sidebarAndHeader": "页头与应用管理",
+      "visibleApps": "在应用切换器中显示哪些应用",
       "goToApps": "前往「应用」",
       "updates": "各应用的新版本",
       "checkToolUpdates": "启动时检查各应用的新版本",
-      "checkToolUpdatesHelp": "打开后，每次启动 CC Switch 会查一次已安装的命令行应用有没有新版本，查到了就在侧栏「应用」上显示一个圆点。不会自动升级。",
+      "checkToolUpdatesHelp": "打开后，每次启动 CC Switch 会查一次已安装的命令行应用有没有新版本，查到了就在应用菜单入口上显示一个圆点。不会自动升级。",
       "windowAndTerminal": "窗口与终端",
       "trayStyle": "托盘样式",
       "trayStylePanel": "面板",
@@ -526,10 +526,10 @@
     },
     "language": "界面语言",
     "languageHint": "切换后立即预览界面语言，保存后永久生效。",
-    "theme": "明暗",
+    "theme": "外观主题",
     "themeHint": "选择应用的外观主题，立即生效。",
-    "themeLight": "月之亮面",
-    "themeDark": "月之暗面",
+    "themeLight": "浅色",
+    "themeDark": "深色",
     "themeSystem": "跟随系统",
     "importExport": "SQL 导入导出",
     "importExportHint": "导入/导出数据库 SQL 备份（仅支持导入由 CC Switch 导出的备份），便于备份或迁移。",
@@ -1274,6 +1274,8 @@
     "routeOnlySettingsHint": "以下两项只在路由模式下生效。"
   },
   "sessionManager": {
+    "readerRegion": "会话阅读",
+    "selectSession": "选择一个会话查看内容",
     "searchPlaceholder": "搜索标题、目录、首末消息或会话 ID",
     "searchSessions": "搜索会话",
     "sessionList": "会话列表",
@@ -2400,7 +2402,7 @@
       "rateHint": "手动填写，只用于换算显示；费用仍按美元记录。",
       "rateInvalid": "请输入大于 0 的数字",
       "approxNote": "换算后的金额悬停可看美元原值。",
-      "sidebarToday": "侧栏「今日」",
+      "sidebarToday": "底部「今日」",
       "sidebarTodayItems": {
         "cost": "金额",
         "tokens": "Token",
@@ -2954,7 +2956,8 @@
       "imported": "已导入 {{path}} 的内容，文件没有改动",
       "importedPi": "已把 AGENTS.md 存进提示库，文件没有改动",
       "copied": "已把「{{name}}」复制到 {{apps}}"
-    }
+    },
+    "deleteAria": "删除 {{name}}"
   },
   "profiles": {
     "switcherAriaLabel": "项目：{{name}}",
@@ -4135,10 +4138,11 @@
     "refresh": "刷新"
   },
   "nav": {
+    "routeServiceDown": "路由服务已停止",
     "mainLabel": "主导航",
     "skipToContent": "跳到主要内容",
-    "expandSidebar": "展开侧栏",
-    "collapseSidebar": "收起侧栏",
+    "expandSidebar": "展开应用切换器",
+    "collapseSidebar": "收起应用切换器",
     "appsGroup": "应用",
     "today": "今日 {{value}}",
     "todayRequests": "{{value}} 次",
@@ -4149,7 +4153,7 @@
     "prompts": "提示词",
     "sessions": "会话",
     "apps": "应用",
-    "appsTitle": "应用：安装、升级、在侧栏显示哪些",
+    "appsTitle": "应用：安装、升级、在应用切换器中显示哪些",
     "appsHasUpdate": "应用 · 有可用更新",
     "settings": "设置",
     "settingsHasUpdate": "设置 · CC Switch 有新版本",
@@ -4161,11 +4165,11 @@
     "back": "返回"
   },
   "appsPage": {
-    "showInSidebar": "在侧栏显示 {{name}}",
+    "showInSidebar": "在应用切换器中显示 {{name}}",
     "lastChecked": "上次检查 {{time}}",
     "neverChecked": "还没检查过更新",
     "helpTitle": "应用",
-    "helpBody": "在这里安装、升级命令行应用，并选择在侧栏显示哪些。",
+    "helpBody": "在这里安装、升级命令行应用，并选择在应用切换器中显示哪些。",
     "checking": "检查中…",
     "checkUpdates": "检查更新",
     "moreActions": "更多操作",
@@ -4173,7 +4177,7 @@
     "columnApp": "应用",
     "columnVersion": "版本",
     "columnVisible": "显示",
-    "visibleHelp": "关掉后，这个应用不再出现在侧栏、托盘菜单、MCP / Skills 的应用列，以及提示词和会话的应用下拉里。只是不显示：它的供应商、MCP 等配置都还在，它自己的配置文件也不会被改动。",
+    "visibleHelp": "关掉后，这个应用不再出现在应用切换器、托盘菜单、MCP / Skills 的应用列，以及提示词和会话的应用下拉里。只是不显示：它的供应商、MCP 等配置都还在，它自己的配置文件也不会被改动。",
     "desktopHelp": "Claude Desktop 是桌面应用，不能在这里安装或升级；CC Switch 通过它的配置文件接入。",
     "desktopUnsupported": "当前系统不支持",
     "desktopConnected": "已接入",
@@ -4202,7 +4206,7 @@
     "viewSessions": "查看会话",
     "configDirectory": "配置目录",
     "installAndUpgrade": "安装与升级",
-    "hideFromSidebar": "在侧栏隐藏",
+    "hideFromSidebar": "在应用切换器中隐藏",
     "providers": "供应商",
     "workspace": "工作区",
     "openclawConfig": "配置",
@@ -4827,7 +4831,7 @@
   },
   "newLayoutNotice": {
     "title": "界面改版了",
-    "body": "CC Switch 这一版重新设计了界面，常用功能的位置有变化：\n• 模式移到了每个应用页的顶部\n• 用量统计和授权中心移到了左侧边栏\n想了解全部变化，可以看看这一版的更新说明。",
+    "body": "应用切换已恢复到顶部，常用工具仍在右侧按钮组中。设置使用熟悉的六个页签。\n\n直连、路由和聚合使用第四版内核；查看页签不会更改连接。新增的聚合、应用管理和会话功能均保留。",
     "viewReleaseNotes": "查看更新说明",
     "confirm": "我知道了"
   },

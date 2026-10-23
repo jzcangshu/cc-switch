@@ -50,7 +50,7 @@ describe("PiProviderForm", () => {
 
   it("starts in the same editable custom state as OpenCode", async () => {
     const onSubmitReadyChange = vi.fn();
-    const { container } = render(
+    render(
       <PiProviderForm
         appId="pi"
         submitLabel="Save preset"
@@ -60,8 +60,6 @@ describe("PiProviderForm", () => {
       />,
     );
 
-    // 表单直接铺在添加页里，不再套一层卡片
-    expect(container.querySelector("#provider-form")).not.toHaveClass("glass");
     expect(screen.getByLabelText("provider.name")).toBeInTheDocument();
     expect(screen.getByLabelText("provider.notes")).toBeInTheDocument();
     expect(screen.getByLabelText("provider.websiteUrl")).toBeInTheDocument();

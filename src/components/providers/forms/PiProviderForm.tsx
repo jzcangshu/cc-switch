@@ -1435,10 +1435,11 @@ export function PiProviderForm({
         onChangeCapture={() => {
           if (formError) setFormError(null);
         }}
-        className="space-y-6"
+        className="glass space-y-6 rounded-xl border border-white/10 p-6"
       >
         {!isEdit && (
           <ProviderPresetSelector
+            appId="pi"
             selectedPresetId={selectedPresetId}
             presetEntries={presetEntries}
             presetCategoryLabels={presetCategoryLabels}

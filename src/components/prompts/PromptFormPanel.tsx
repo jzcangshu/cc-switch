@@ -8,6 +8,11 @@ import {
   SheetPageContent,
 } from "@/components/ui/sheet";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import MarkdownEditor, {
+  type MarkdownEditorHandle,
+} from "@/components/MarkdownEditor";
+import { useDarkMode } from "@/hooks/useDarkMode";
+import { useUnsavedChangesTracker } from "@/lib/unsavedChanges";
 import type { Prompt, AppId } from "@/lib/api";
 import { fieldClass } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -47,8 +52,7 @@ export function FieldError({ id, children }: { id: string; children: string }) {
 }
 
 /**
- * 添加 / 编辑提示词的抽屉（宽 560，PromptsEdit.dc.html）。
- * 启用中的那条：保存按钮写明会覆盖哪个文件；删除照样画出来但不能点，原因挂在按钮上。
+ * 第三版的 Markdown 编辑体验，保留第四版保存目标、大小限制及错误定位。
  */
 const PromptFormPanel: React.FC<PromptFormPanelProps> = ({
   appId,
@@ -67,11 +71,13 @@ const PromptFormPanel: React.FC<PromptFormPanelProps> = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
+  useUnsavedChangesTracker(true, content !== (initialData?.content ?? ""));
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<MarkdownEditorHandle>(null);
+  const isDarkMode = useDarkMode();
 
   useEffect(() => {
     if (initialData) {
@@ -174,103 +180,106 @@ const PromptFormPanel: React.FC<PromptFormPanelProps> = ({
         </SheetDescription>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto scroll-stable overscroll-contain px-6 pb-6 pt-5">
-          <div className="flex shrink-0 flex-col gap-1.5">
-            <label
-              htmlFor={`${baseId}-name`}
-              className="text-body font-medium text-fg-1"
-            >
-              {t("prompts.name")}
-              <span aria-hidden="true" className="ms-0.5 text-danger-text">
-                *
-              </span>
-              <span className="sr-only">{t("prompts.requiredMark")}</span>
-            </label>
-            <input
-              ref={nameRef}
-              id={`${baseId}-name`}
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={saving}
-              placeholder={t(
-                isHermes
-                  ? "prompts.namePlaceholderHermes"
-                  : "prompts.namePlaceholder",
-              )}
-              aria-required="true"
-              aria-invalid={showNameError}
-              aria-describedby={showNameError ? nameHintId : undefined}
-              autoComplete="off"
-              className={cn(promptFieldClass, "h-8")}
-            />
-            {showNameError ? (
-              <FieldError id={nameHintId}>{nameError}</FieldError>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 flex-col gap-1.5">
-            <label
-              htmlFor={`${baseId}-desc`}
-              className="text-body font-medium text-fg-1"
-            >
-              {t("prompts.description")}
-            </label>
-            <input
-              id={`${baseId}-desc`}
-              type="text"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              disabled={saving}
-              placeholder={t("prompts.descriptionPlaceholder")}
-              autoComplete="off"
-              className={cn(promptFieldClass, "h-8")}
-            />
-          </div>
-
-          <div className="flex min-h-[220px] flex-1 flex-col gap-1.5">
-            <label
-              htmlFor={`${baseId}-body`}
-              className="text-body font-medium text-fg-1"
-            >
-              {t("prompts.content")}
-            </label>
-            <textarea
-              ref={bodyRef}
-              id={`${baseId}-body`}
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              disabled={saving}
-              spellCheck={false}
-              placeholder={
-                isHermes
-                  ? t("prompts.contentPlaceholderHermes")
-                  : t("prompts.contentPlaceholder", {
-                      filename: fileName,
-                      appName,
-                    })
-              }
-              aria-invalid={showBodyError}
-              aria-describedby={
-                showBodyError ? `${bodyHintId} ${countId}` : countId
-              }
-              className={cn(
-                promptFieldClass,
-                "min-h-[180px] flex-1 resize-none px-3 py-2.5 font-mono text-caption leading-[18px]",
-              )}
-            />
-            <div className="flex items-start gap-3">
-              {showBodyError ? (
-                <FieldError id={bodyHintId}>{bodyError}</FieldError>
-              ) : null}
-              <span
-                id={countId}
-                className={cn(
-                  "ms-auto shrink-0 whitespace-nowrap text-caption tabular-nums",
-                  overLimit ? "text-danger-text" : "text-fg-2",
-                )}
+          <div className="glass flex flex-1 flex-col gap-6 rounded-xl border border-white/10 p-6">
+            <div className="flex shrink-0 flex-col gap-1.5">
+              <label
+                htmlFor={`${baseId}-name`}
+                className="text-body font-medium text-fg-1"
               >
-                {countText}
-              </span>
+                {t("prompts.name")}
+                <span aria-hidden="true" className="ms-0.5 text-danger-text">
+                  *
+                </span>
+                <span className="sr-only">{t("prompts.requiredMark")}</span>
+              </label>
+              <input
+                ref={nameRef}
+                id={`${baseId}-name`}
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={saving}
+                placeholder={t(
+                  isHermes
+                    ? "prompts.namePlaceholderHermes"
+                    : "prompts.namePlaceholder",
+                )}
+                aria-required="true"
+                aria-invalid={showNameError}
+                aria-describedby={showNameError ? nameHintId : undefined}
+                autoComplete="off"
+                className={cn(promptFieldClass, "h-9")}
+              />
+              {showNameError ? (
+                <FieldError id={nameHintId}>{nameError}</FieldError>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 flex-col gap-1.5">
+              <label
+                htmlFor={`${baseId}-desc`}
+                className="text-body font-medium text-fg-1"
+              >
+                {t("prompts.description")}
+              </label>
+              <input
+                id={`${baseId}-desc`}
+                type="text"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={saving}
+                placeholder={t("prompts.descriptionPlaceholder")}
+                autoComplete="off"
+                className={cn(promptFieldClass, "h-9")}
+              />
+            </div>
+
+            <div className="flex min-h-[220px] flex-1 flex-col gap-1.5">
+              <label
+                htmlFor={`${baseId}-body`}
+                id={`${baseId}-body-label`}
+                onClick={() => bodyRef.current?.focus()}
+                className="text-body font-medium text-fg-1"
+              >
+                {t("prompts.content")}
+              </label>
+              <MarkdownEditor
+                ref={bodyRef}
+                id={`${baseId}-body`}
+                value={content}
+                onChange={setContent}
+                readOnly={saving}
+                darkMode={isDarkMode}
+                minHeight="167px"
+                aria-labelledby={`${baseId}-body-label`}
+                placeholder={
+                  isHermes
+                    ? t("prompts.contentPlaceholderHermes")
+                    : t("prompts.contentPlaceholder", {
+                        filename: fileName,
+                        appName,
+                      })
+                }
+                aria-invalid={showBodyError}
+                aria-describedby={
+                  showBodyError ? `${bodyHintId} ${countId}` : countId
+                }
+                className={cn("flex-1", showBodyError && "border-danger")}
+              />
+              <div className="flex items-start gap-3">
+                {showBodyError ? (
+                  <FieldError id={bodyHintId}>{bodyError}</FieldError>
+                ) : null}
+                <span
+                  id={countId}
+                  className={cn(
+                    "ms-auto shrink-0 whitespace-nowrap text-caption tabular-nums",
+                    overLimit ? "text-danger-text" : "text-fg-2",
+                  )}
+                >
+                  {countText}
+                </span>
+              </div>
             </div>
           </div>
         </div>

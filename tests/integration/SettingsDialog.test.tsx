@@ -84,11 +84,11 @@ vi.mock("@/components/settings/AboutSection", () => ({
   AboutSection: ({ isPortable }: any) => <div>about:{String(isPortable)}</div>,
 }));
 
-const renderDialog = (
+const renderDialog = async (
   props?: Partial<React.ComponentProps<typeof SettingsPage>>,
 ) => {
   const client = new QueryClient();
-  return render(
+  const result = render(
     <QueryClientProvider client={client}>
       <Suspense fallback={<div data-testid="loading">loading</div>}>
         <SettingsPage
@@ -100,6 +100,17 @@ const renderDialog = (
       </Suspense>
     </QueryClientProvider>,
   );
+  if (!props?.section || props.section === "data") {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "settings.data.location" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.advanced.data.title",
+      }),
+    );
+  }
+  return result;
 };
 
 beforeEach(() => {
@@ -114,7 +125,7 @@ afterEach(() => {
 
 describe("SettingsPage integration", () => {
   it("loads default settings from MSW", async () => {
-    renderDialog();
+    await renderDialog();
 
     const appInput = await screen.findByPlaceholderText(
       "settings.browsePlaceholderApp",
@@ -124,7 +135,7 @@ describe("SettingsPage integration", () => {
 
   it("imports configuration and triggers success callback", async () => {
     const onImportSuccess = vi.fn();
-    renderDialog({ onImportSuccess });
+    await renderDialog({ onImportSuccess });
 
     fireEvent.click(await screen.findByText("settings.selectConfigFile"));
     await waitFor(() =>
@@ -142,7 +153,7 @@ describe("SettingsPage integration", () => {
   });
 
   it("saves settings and handles restart prompt", async () => {
-    renderDialog();
+    await renderDialog();
 
     const appInput = await screen.findByPlaceholderText(
       "settings.browsePlaceholderApp",
@@ -163,7 +174,7 @@ describe("SettingsPage integration", () => {
   });
 
   it("allows browsing and resetting the data directory", async () => {
-    renderDialog();
+    await renderDialog();
 
     const appInput = (await screen.findByPlaceholderText(
       "settings.browsePlaceholderApp",
@@ -184,7 +195,7 @@ describe("SettingsPage integration", () => {
   });
 
   it("allows browsing and resetting an app's config directory", async () => {
-    renderDialog({ section: "appConfig" });
+    await renderDialog({ section: "appConfig" });
 
     const claudeInput = (await screen.findByPlaceholderText(
       "settings.browsePlaceholderClaude",
@@ -208,7 +219,7 @@ describe("SettingsPage integration", () => {
   });
 
   it.each([undefined, "/saved/claude"])(
-    "discards directory drafts after unrelated autosave with saved directory %s",
+    "preserves directory drafts without autosaving them with saved directory %s",
     async (savedDirectory) => {
       setSettings({ claudeConfigDir: savedDirectory });
       const resolvedDirectory = savedDirectory ?? "/home/mock/.claude";
@@ -232,7 +243,7 @@ describe("SettingsPage integration", () => {
           return HttpResponse.json(true);
         }),
       );
-      renderDialog({ section: "appConfig" });
+      await renderDialog({ section: "appConfig" });
 
       const directory = await screen.findByPlaceholderText(
         "settings.browsePlaceholderClaude",
@@ -251,12 +262,8 @@ describe("SettingsPage integration", () => {
         expect(getSettings().skipClaudeOnboarding).toBe(true),
       );
       expect(saves[0].claudeConfigDir).toBe(savedDirectory);
-      await waitFor(() =>
-        expect(
-          screen.queryByRole("button", { name: "common.save" }),
-        ).toBeNull(),
-      );
-      await waitFor(() => expect(directory).toHaveValue(resolvedDirectory));
+      expect(screen.getByRole("button", { name: "common.save" })).toBeEnabled();
+      expect(directory).toHaveValue("/unsaved/claude");
 
       fireEvent.click(toggle);
       await waitFor(() =>
@@ -264,7 +271,7 @@ describe("SettingsPage integration", () => {
       );
       expect(saves).toHaveLength(2);
       expect(saves[1].claudeConfigDir).toBe(savedDirectory);
-      expect(directory).toHaveValue(resolvedDirectory);
+      expect(directory).toHaveValue("/unsaved/claude");
       expect(syncLive).not.toHaveBeenCalled();
     },
   );
@@ -297,7 +304,7 @@ describe("SettingsPage integration", () => {
           return HttpResponse.json(null);
         }),
       );
-      renderDialog({ section: "appConfig" });
+      await renderDialog({ section: "appConfig" });
       const directory = await screen.findByPlaceholderText(
         "settings.browsePlaceholderClaude",
       );
@@ -315,7 +322,9 @@ describe("SettingsPage integration", () => {
       );
       await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledOnce());
       expect(directory).toHaveValue("/edited/claude");
-      expect(screen.queryByRole("button", { name: "common.save" })).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "common.save" }),
+      ).toBeDisabled();
 
       fireEvent.click(
         screen.getAllByRole("button", { name: "settings.resetDefault" })[0],
@@ -328,7 +337,9 @@ describe("SettingsPage integration", () => {
       );
       await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
       expect(directory).toHaveValue("/home/mock/.claude");
-      expect(screen.queryByRole("button", { name: "common.save" })).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "common.save" }),
+      ).toBeDisabled();
     },
   );
 
@@ -341,7 +352,7 @@ describe("SettingsPage integration", () => {
     ],
     ["pi", "piConfigDir", "settings.browsePlaceholderPi", "/env/pi-agent"],
   ] as const)(
-    "restores backend-resolved %s default after draft discard",
+    "keeps a %s path draft while unrelated settings save",
     async (targetApp, field, placeholder, backendDefault) => {
       setSettings({ [field]: undefined });
       const saves: Settings[] = [];
@@ -359,7 +370,7 @@ describe("SettingsPage integration", () => {
           return HttpResponse.json(true);
         }),
       );
-      renderDialog({ section: "appConfig" });
+      await renderDialog({ section: "appConfig" });
       const directory = await screen.findByPlaceholderText(placeholder);
       await waitFor(() => expect(directory).toHaveValue(backendDefault));
       fireEvent.change(directory, { target: { value: `/draft/${targetApp}` } });
@@ -370,18 +381,14 @@ describe("SettingsPage integration", () => {
       await waitFor(() =>
         expect(getSettings().skipClaudeOnboarding).toBe(true),
       );
-      await waitFor(() =>
-        expect(
-          screen.queryByRole("button", { name: "common.save" }),
-        ).toBeNull(),
-      );
+      expect(screen.getByRole("button", { name: "common.save" })).toBeEnabled();
       expect(saves[0][field]).toBeUndefined();
-      await waitFor(() => expect(directory).toHaveValue(backendDefault));
+      expect(directory).toHaveValue("/draft/" + targetApp);
     },
   );
 
   it("notifies when export fails", async () => {
-    renderDialog();
+    await renderDialog();
 
     await screen.findByText("settings.exportConfig");
 

@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Search, SlidersHorizontal, X, Zap } from "lucide-react";
+import {
+  ArrowUpAZ,
+  Heart,
+  Search,
+  SlidersHorizontal,
+  Star,
+  X,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClaudeIcon, CodexIcon, GeminiIcon } from "@/components/BrandIcons";
-import { ProviderIconBox } from "@/components/ProviderIconBox";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import type { ProviderPreset } from "@/config/claudeProviderPresets";
 import type { CodexProviderPreset } from "@/config/codexProviderPresets";
 import type { GeminiProviderPreset } from "@/config/geminiProviderPresets";
@@ -23,7 +30,6 @@ import {
   type UniversalProviderPreset,
 } from "@/config/universalProviderPresets";
 import { cn } from "@/lib/utils";
-import { usePresetStep } from "./presetStep";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   Select,
@@ -35,7 +41,6 @@ import {
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   PRESET_GROUP_ORDER,
-  familyDisplayName,
   groupPresetRows,
   loginAccountKey,
   matchPresetRow,
@@ -43,7 +48,6 @@ import {
   presetDomain,
   presetGroup,
   presetMatches,
-  presetNeedsRouting,
   presetPlanLabel,
   presetRegionLabel,
   presetRowGroup,
@@ -53,7 +57,6 @@ import {
   presetVersionLayout,
   presetVersionShortLabel,
   presetVersions,
-  sectionPresetRows,
   sortPresetRowsByName,
   sortPresetsByName,
   type PresetGroup,
@@ -103,7 +106,7 @@ export function getVisiblePresetEntries(
   return sortPresetsByName(filterPresetEntries(entries, query, t), t);
 }
 
-/** 第 1 步的一行和搜索命中的版本下标（空 = 整家命中） */
+/** 一个供应商按钮和搜索命中的版本下标（空 = 整家命中） */
 export interface VisiblePresetRow {
   row: PresetRowItem;
   hits: number[];
@@ -124,6 +127,7 @@ export function getVisiblePresetRows(
 type PickerCategory = "all" | PresetGroup | "universal";
 
 interface ProviderPresetSelectorProps {
+  appId: AppId;
   selectedPresetId: string | null;
   presetEntries: PresetEntry[];
   /** 旧的分类名表，保留给调用方；v7 的分类由预设字段推算 */
@@ -134,93 +138,97 @@ interface ProviderPresetSelectorProps {
   category?: ProviderCategory;
 }
 
-/**
- * 添加供应商的预设（v7 两步）：第 1 步在添加页的内容区里选（常驻搜索 + 左侧分类 + 两列列表），
- * 第 2 步在表单最上面只剩一条「预设条」，点「更换」回到第 1 步。
- */
+/** 第三版的同页预设网格，保留第四版的版本分组与套餐、地区切换。 */
 export function ProviderPresetSelector({
+  appId,
   selectedPresetId,
   presetEntries,
   onPresetChange,
   onUniversalPresetSelect,
   onManageUniversalProviders,
 }: Readonly<ProviderPresetSelectorProps>) {
-  const step = usePresetStep();
-  const registerSelector = step?.registerSelector;
-  useEffect(() => registerSelector?.(), [registerSelector]);
-
-  const pick = (id: string) => {
-    onPresetChange(id);
-    step?.setStep("form");
-  };
-
-  if (step?.step === "pick" && step.host) {
-    return createPortal(
-      <PresetPicker
-        appId={step.appId}
-        entries={presetEntries}
-        onPick={pick}
-        onUniversalPresetSelect={onUniversalPresetSelect}
-        onManageUniversalProviders={onManageUniversalProviders}
-      />,
-      step.host,
-    );
-  }
-
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  const edited = useFormEditedSince(ref, selectedPresetId ?? "custom");
+  const [pending, setPending] = useState<PresetEntry | null>(null);
   const entry =
     selectedPresetId && selectedPresetId !== "custom"
       ? presetEntries.find((item) => item.id === selectedPresetId)
       : undefined;
 
-  if (!step) {
-    // 没有两步外壳（单独渲染的表单）：就地显示选择列表，选中多版本的那一家时下面跟版本切换
-    const versions = entry ? presetVersions(presetEntries, entry) : [];
-    return (
-      <div className="space-y-3" data-preset-selector="">
-        <div className="h-[420px] overflow-hidden rounded-panel border border-border">
-          <PresetPicker
-            entries={presetEntries}
-            onPick={onPresetChange}
-            selectedPresetId={selectedPresetId}
-            onUniversalPresetSelect={onUniversalPresetSelect}
-            onManageUniversalProviders={onManageUniversalProviders}
-          />
-        </div>
-        {entry && versions.length > 1 && (
-          <VersionSwitch
-            entry={entry}
-            versions={versions}
-            onVersionChange={onPresetChange}
-          />
-        )}
-      </div>
-    );
-  }
-
+  const versions = entry ? presetVersions(presetEntries, entry) : [];
+  const requestPresetChange = (id: string) => {
+    if (entry?.id === id) return;
+    const next = presetEntries.find((item) => item.id === id);
+    if (
+      entry?.preset.family &&
+      next?.preset.family === entry.preset.family &&
+      edited.current
+    ) {
+      setPending(next);
+    } else {
+      onPresetChange(id);
+    }
+  };
   return (
-    <PresetBar
-      appId={step.appId}
-      entry={entry}
-      versions={entry ? presetVersions(presetEntries, entry) : []}
-      onChange={() => step.setStep("pick")}
-      // 换版本 = 选了同一家的另一个预设，表单按它重填
-      onVersionChange={onPresetChange}
-    />
+    <div ref={ref} className="space-y-3" data-preset-selector="">
+      <PresetPicker
+        appId={appId}
+        entries={presetEntries}
+        onPick={requestPresetChange}
+        selectedPresetId={selectedPresetId}
+        onUniversalPresetSelect={onUniversalPresetSelect}
+        onManageUniversalProviders={onManageUniversalProviders}
+      />
+      {entry && versions.length > 1 && (
+        <VersionSwitch
+          entry={entry}
+          versions={versions}
+          onVersionChange={requestPresetChange}
+        />
+      )}
+      <p className="text-xs text-muted-foreground">
+        {entry
+          ? t(`providerPreset.groupHint.${presetGroup(entry.preset)}`)
+          : t("providerPreset.customDetail")}
+      </p>
+      <ConfirmDialog
+        isOpen={pending !== null}
+        title={t("providerPreset.switchVersionTitle", {
+          version: pending ? presetVersionLabel(pending, t) : "",
+        })}
+        message={t("providerPreset.switchVersionMessage")}
+        confirmText={t("providerPreset.switchVersionConfirm")}
+        variant="info"
+        onConfirm={() => {
+          const next = pending;
+          setPending(null);
+          if (next) onPresetChange(next.id);
+        }}
+        onCancel={() => setPending(null)}
+      />
+    </div>
   );
 }
 
 // ─── 图标块 ─────────────────────────────────────────────────────────────────
 
-function PresetIconBox({ preset }: { preset?: AnyPreset }) {
+function PresetIconBox({
+  preset,
+  selected = false,
+}: {
+  preset?: AnyPreset;
+  selected?: boolean;
+}) {
   const { t } = useTranslation();
   if (preset?.icon) {
     return (
-      <ProviderIconBox
+      <ProviderIcon
         icon={preset.icon}
         name={preset.name}
         color={preset.iconColor}
-        className="bg-surface"
-        iconClassName="shrink-0 text-fg-1"
+        size={16}
+        className={cn("shrink-0", !selected && "text-foreground")}
       />
     );
   }
@@ -247,75 +255,10 @@ function PresetIconBox({ preset }: { preset?: AnyPreset }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-surface"
+      className="flex h-4 w-4 shrink-0 items-center justify-center"
     >
       {inner}
     </span>
-  );
-}
-
-// ─── 第 2 步：预设条 ────────────────────────────────────────────────────────
-
-function PresetBar({
-  appId,
-  entry,
-  versions,
-  onChange,
-  onVersionChange,
-}: {
-  appId: AppId;
-  entry?: PresetEntry;
-  /** 同一家的所有版本（含选中的这个）；只有一个时不显示「版本」 */
-  versions: PresetEntry[];
-  onChange: () => void;
-  onVersionChange: (id: string) => void;
-}) {
-  const { t } = useTranslation();
-  const family = versions.length > 1 ? entry?.preset.family : undefined;
-  const name = entry
-    ? family
-      ? familyDisplayName(family, t)
-      : presetDisplayName(entry.preset, t)
-    : "";
-  const domain = entry ? presetDomain(entry.preset) : "";
-  return (
-    <div
-      data-preset-selector=""
-      className="flex flex-col gap-3 rounded-panel bg-subtle px-3.5 py-3"
-    >
-      <div className="flex items-center gap-3">
-        <PresetIconBox preset={entry?.preset} />
-        <div className="min-w-0 flex-1">
-          {entry ? (
-            <>
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-strong text-fg-1" title={name}>
-                  {name}
-                </span>
-                {presetNeedsRouting(appId, entry) && <NeedsRouteBadge />}
-              </div>
-              {domain && (
-                <div className="truncate text-caption text-fg-2">{domain}</div>
-              )}
-            </>
-          ) : (
-            <div className="truncate text-strong text-fg-1">
-              {t("providerPreset.customBar")}
-            </div>
-          )}
-        </div>
-        <Button type="button" variant="quiet" size="compact" onClick={onChange}>
-          {t("providerPreset.change")}
-        </Button>
-      </div>
-      {entry && family && (
-        <VersionSwitch
-          entry={entry}
-          versions={versions}
-          onVersionChange={onVersionChange}
-        />
-      )}
-    </div>
   );
 }
 
@@ -357,7 +300,7 @@ function useFormEditedSince(
  * 选版本（换版本 = 选同一家的另一个预设，表单按它重填）。版本按「套餐 × 地区」两个维度摆：
  * 只有一维在变 → 一个分段控件；两维都变且成完整网格 → 套餐、地区各一个分段控件
  * （切一维时另一维保持不变）；不成网格 → 下拉。见 presetVersionLayout。
- * 用户已经手动改过表单时先确认（后果写在确认框里），没改过直接切。
+ * 覆盖确认由外层选择器统一处理，搜索选中的版本也遵守同一规则。
  */
 function VersionSwitch({
   entry,
@@ -369,21 +312,7 @@ function VersionSwitch({
   onVersionChange: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
-  const edited = useFormEditedSince(ref, entry.id);
-  const [pending, setPending] = useState<PresetEntry | null>(null);
   const layout = presetVersionLayout(versions);
-
-  const request = (id: string) => {
-    if (id === entry.id) return;
-    const next = versions.find((version) => version.id === id);
-    if (!next) return;
-    if (edited.current) {
-      setPending(next);
-    } else {
-      onVersionChange(id);
-    }
-  };
 
   // 网格里切一维：另一维保持当前值
   const requestCell = (
@@ -394,17 +323,14 @@ function VersionSwitch({
       (version) =>
         version.preset.planKey === plan && version.preset.regionKey === region,
     );
-    if (next) request(next.id);
+    if (next) onVersionChange(next.id);
   };
 
   const segmentClass =
-    "h-auto min-w-0 flex-wrap gap-0.5 border border-border-strong bg-transparent p-0.5";
+    "h-auto min-w-0 flex-wrap gap-0.5 rounded-lg bg-accent p-1";
 
   return (
-    <div
-      ref={ref}
-      className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2"
-    >
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2">
       {layout.kind === "grid" ? (
         <>
           <DimensionLabel>{t("providerPreset.planLabel")}</DimensionLabel>
@@ -445,7 +371,7 @@ function VersionSwitch({
           <SegmentedControl
             aria-label={t("providerPreset.versionLabel")}
             value={entry.id}
-            onValueChange={request}
+            onValueChange={onVersionChange}
             items={versions.map((version) => ({
               value: version.id,
               label: presetVersionShortLabel(version, layout.dimension, t),
@@ -457,7 +383,7 @@ function VersionSwitch({
       ) : (
         <>
           <DimensionLabel>{t("providerPreset.versionLabel")}</DimensionLabel>
-          <Select value={entry.id} onValueChange={request}>
+          <Select value={entry.id} onValueChange={onVersionChange}>
             <SelectTrigger
               aria-label={t("providerPreset.versionLabel")}
               className="h-9 w-auto min-w-[220px] max-w-full justify-self-start rounded-control text-body"
@@ -474,21 +400,6 @@ function VersionSwitch({
           </Select>
         </>
       )}
-      <ConfirmDialog
-        isOpen={pending !== null}
-        title={t("providerPreset.switchVersionTitle", {
-          version: pending ? presetVersionLabel(pending, t) : "",
-        })}
-        message={t("providerPreset.switchVersionMessage")}
-        confirmText={t("providerPreset.switchVersionConfirm")}
-        variant="info"
-        onConfirm={() => {
-          const next = pending;
-          setPending(null);
-          if (next) onVersionChange(next.id);
-        }}
-        onCancel={() => setPending(null)}
-      />
     </div>
   );
 }
@@ -514,10 +425,10 @@ function NeedsRouteBadge() {
   );
 }
 
-// ─── 第 1 步：选预设 ────────────────────────────────────────────────────────
+// ─── 预设网格 ──────────────────────────────────────────────────────────────
 
 interface PresetPickerProps {
-  appId?: AppId;
+  appId: AppId;
   entries: PresetEntry[];
   selectedPresetId?: string | null;
   onPick: (id: string) => void;
@@ -535,13 +446,16 @@ function PresetPicker({
 }: PresetPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sortByName, setSortByName] = useState(false);
   const [category, setCategory] = useState<PickerCategory>("all");
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!searchOpen) return;
     const frame = requestAnimationFrame(() => searchRef.current?.focus());
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [searchOpen]);
 
   // ⌘F / Ctrl+F 回到搜索框（捕获阶段，别让后面供应商列表的同名快捷键接到）
   useEffect(() => {
@@ -549,7 +463,8 @@ function PresetPicker({
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         event.stopPropagation();
-        searchRef.current?.focus();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchRef.current?.focus());
       }
     };
     globalThis.addEventListener("keydown", onKeyDown, true);
@@ -566,10 +481,25 @@ function PresetPicker({
   }, [entries]);
 
   // 同一家的多个版本合成一行，数量也按行数算
-  const matching = useMemo(
-    () => getVisiblePresetRows(entries, { query, t }),
-    [entries, query, t],
-  );
+  const matching = useMemo(() => {
+    const rows = getVisiblePresetRows(entries, { query, t });
+    if (sortByName) return rows;
+    // 第三版的默认顺序：官方、尊享合作伙伴、合作伙伴，其余按名称。
+    const rank = ({ row }: VisiblePresetRow) => {
+      const preset = row.versions[0].preset;
+      if (preset.category === "official") return 0;
+      if (preset.primePartner) return 1;
+      return preset.isPartner ? 2 : 3;
+    };
+    return rows.sort((a, b) => {
+      const priority = rank(a) - rank(b);
+      if (priority !== 0) return priority;
+      if (rank(a) === 3) return 0;
+      return (
+        entries.indexOf(a.row.versions[0]) - entries.indexOf(b.row.versions[0])
+      );
+    });
+  }, [entries, query, sortByName, t]);
   const matchingUniversal = useMemo(
     () =>
       onUniversalPresetSelect
@@ -599,6 +529,36 @@ function PresetPicker({
     ...PRESET_GROUP_ORDER.filter((group) => groups.has(group)),
   ];
   const searching = query.trim().length > 0;
+  const showUniversal = category === "all" || category === "universal";
+  const universalGrid = onUniversalPresetSelect && (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+      {matchingUniversal.map((preset) => (
+        <PresetRow
+          key={`universal-${preset.providerType}`}
+          icon={
+            <ProviderIcon
+              icon={preset.icon}
+              name={preset.name}
+              size={16}
+              className="shrink-0"
+            />
+          }
+          name={preset.name}
+          detail={t("providerPreset.universalDetail")}
+          onClick={() => onUniversalPresetSelect(preset)}
+        />
+      ))}
+      {onManageUniversalProviders && (
+        <button
+          type="button"
+          onClick={onManageUniversalProviders}
+          className="rounded-lg bg-accent px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/80"
+        >
+          {t("providerPreset.manageUniversal")}
+        </button>
+      )}
+    </div>
+  );
 
   const customRow = (
     <PresetRow
@@ -606,21 +566,33 @@ function PresetPicker({
       name={t("providerPreset.custom")}
       detail={t("providerPreset.customDetail")}
       selected={selectedPresetId === "custom"}
+      changesPreset={selectedPresetId !== "custom"}
       onClick={() => onPick("custom")}
     />
   );
   const renderRow = ({ row, hits }: VisiblePresetRow) => {
     const first = row.versions[0];
-    // 搜索命中某个版本时选中那个版本，否则选第一个
-    const target = row.versions[hits[0] ?? 0];
+    const selected = row.versions.find(
+      (entry) => entry.id === selectedPresetId,
+    );
+    // 搜索可直达命中的版本；再次选择同一家时保留当前套餐和地区。
+    const target =
+      hits.length > 0 ? row.versions[hits[0]] : (selected ?? first);
     return (
       <PresetRow
         key={row.key}
-        icon={<PresetIconBox preset={first.preset} />}
+        preset={selected?.preset ?? first.preset}
+        icon={
+          <PresetIconBox
+            preset={selected?.preset ?? first.preset}
+            selected={Boolean(selected)}
+          />
+        }
         name={presetRowName(row, t)}
         detail={presetRowDetail(appId, row, hits, t)}
         needsRoute={presetRowNeedsRouting(appId, row)}
-        selected={row.versions.some((entry) => entry.id === selectedPresetId)}
+        selected={Boolean(selected)}
+        changesPreset={target.id !== selectedPresetId}
         onClick={() => onPick(target.id)}
       />
     );
@@ -628,52 +600,85 @@ function PresetPicker({
 
   const nothing =
     searching &&
-    matching.length === 0 &&
-    (category !== "universal" || matchingUniversal.length === 0);
+    shown.length === 0 &&
+    (!showUniversal || matchingUniversal.length === 0);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 px-6 pb-3 pt-4">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-3"
-            strokeWidth={1.5}
-          />
-          <Input
-            ref={searchRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && query) {
-                event.preventDefault();
-                setQuery("");
-              }
-            }}
-            placeholder={t("providerPreset.searchPlaceholder")}
-            aria-label={t("providerPreset.searchAriaLabel")}
-            className="pe-9 ps-9"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                searchRef.current?.focus();
-              }}
-              aria-label={t("providerPreset.clearSearch")}
-              className="absolute end-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-control text-fg-3 hover:bg-subtle hover:text-fg-1"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+    <div className="space-y-3">
+      <div
+        className="flex flex-wrap items-center justify-between gap-2"
+        data-unsaved-ignore
+      >
+        <span className="text-sm font-medium">{t("providerPreset.label")}</span>
+        <div className="flex items-center gap-2">
+          {searchOpen && (
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-3"
+                strokeWidth={1.5}
+              />
+              <Input
+                ref={searchRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setQuery("");
+                    setSearchOpen(false);
+                  }
+                }}
+                placeholder={t("providerPreset.searchPlaceholder")}
+                aria-label={t("providerPreset.searchAriaLabel")}
+                className="h-8 w-60 pe-9 ps-9"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    searchRef.current?.focus();
+                  }}
+                  aria-label={t("providerPreset.clearSearch")}
+                  className="absolute end-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-control text-fg-3 hover:bg-subtle hover:text-fg-1"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("providerPreset.searchAriaLabel")}
+            aria-pressed={searchOpen}
+            onClick={() => {
+              setSearchOpen(!searchOpen);
+              if (searchOpen) setQuery("");
+            }}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("providerPreset.sortAriaLabel")}
+            aria-pressed={sortByName}
+            onClick={() => setSortByName(!sortByName)}
+          >
+            <ArrowUpAZ className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4 px-6 pb-4">
+      <div className="space-y-3">
         <div
           role="group"
           aria-label={t("providerPreset.categoriesLabel")}
-          className="flex w-[168px] shrink-0 flex-col gap-0.5 overflow-y-auto"
+          data-unsaved-ignore
+          className="flex flex-wrap items-center gap-1.5"
         >
           {navItems.map((key) => (
             <CategoryButton
@@ -686,23 +691,17 @@ function PresetPicker({
             />
           ))}
           {onUniversalPresetSelect && (
-            <>
-              <div className="my-2 border-t border-border" />
-              <div className="px-2 pb-1 text-badge text-fg-3">
-                {t("providerPreset.crossApp")}
-              </div>
-              <CategoryButton
-                label={t("providerPreset.group.universal")}
-                count={countFor("universal")}
-                active={category === "universal"}
-                dim={searching && countFor("universal") === 0}
-                onClick={() => setCategory("universal")}
-              />
-            </>
+            <CategoryButton
+              label={t("providerPreset.group.universal")}
+              count={countFor("universal")}
+              active={category === "universal"}
+              dim={searching && countFor("universal") === 0}
+              onClick={() => setCategory("universal")}
+            />
           )}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className="min-w-0">
           {category !== "all" && (
             <p className="mb-2 text-caption text-fg-2">
               {t(`providerPreset.groupHint.${category}`)}
@@ -728,62 +727,15 @@ function PresetPicker({
               </Button>
             </div>
           ) : category === "universal" ? (
-            <div className="grid grid-cols-2 gap-2">
-              {matchingUniversal.map((preset) => (
-                <PresetRow
-                  key={`universal-${preset.providerType}`}
-                  icon={
-                    <ProviderIconBox
-                      icon={preset.icon}
-                      name={preset.name}
-                      className="bg-surface"
-                      iconClassName="shrink-0 text-fg-1"
-                    />
-                  }
-                  name={preset.name}
-                  detail={t("providerPreset.universalDetail")}
-                  onClick={() => onUniversalPresetSelect?.(preset)}
-                />
-              ))}
-              {onManageUniversalProviders && (
-                <button
-                  type="button"
-                  onClick={onManageUniversalProviders}
-                  className="col-span-2 justify-self-start text-caption text-fg-1 underline underline-offset-2 hover:text-fg-2"
-                >
-                  {t("providerPreset.manageUniversal")}
-                </button>
-              )}
-            </div>
-          ) : category === "all" ? (
-            // 「全部」按左侧分类分段，段内按名称；自定义配置固定在最上面
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-2">{customRow}</div>
-              {sectionPresetRows(shown).map((section) => (
-                <section
-                  key={section.group}
-                  aria-labelledby={`preset-section-${section.group}`}
-                  className="flex flex-col gap-2"
-                >
-                  <h3
-                    id={`preset-section-${section.group}`}
-                    className="px-0.5 text-caption font-medium text-fg-2"
-                  >
-                    {t(`providerPreset.group.${section.group}`)}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {section.items.map(renderRow)}
-                  </div>
-                </section>
-              ))}
-            </div>
+            universalGrid
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
               {customRow}
               {shown.map(renderRow)}
             </div>
           )}
         </div>
+        {category === "all" && universalGrid}
       </div>
     </div>
   );
@@ -843,8 +795,8 @@ function CategoryButton({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "flex h-8 items-center justify-between gap-2 rounded-control px-2 text-start text-body transition-colors",
-        active ? "bg-selected font-medium text-fg-1" : "hover:bg-subtle",
+        "flex h-8 items-center justify-between gap-2 rounded-lg px-3 text-start text-sm transition-colors",
+        active ? "bg-accent font-medium text-foreground" : "hover:bg-accent/80",
         !active && (dim ? "text-fg-3" : "text-fg-1"),
       )}
     >
@@ -857,18 +809,22 @@ function CategoryButton({
 }
 
 function PresetRow({
+  preset,
   icon,
   name,
   detail,
   needsRoute = false,
   selected = false,
+  changesPreset = false,
   onClick,
 }: {
+  preset?: AnyPreset;
   icon: React.ReactNode;
   name: string;
   detail?: string;
   needsRoute?: boolean;
   selected?: boolean;
+  changesPreset?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -876,31 +832,51 @@ function PresetRow({
       type="button"
       onClick={onClick}
       aria-current={selected || undefined}
+      data-unsaved-change={changesPreset || undefined}
       aria-label={name}
       aria-description={detail}
+      title={detail}
+      style={
+        selected && preset?.theme?.backgroundColor
+          ? {
+              backgroundColor: preset.theme.backgroundColor,
+              color: preset.theme.textColor || "#FFFFFF",
+            }
+          : undefined
+      }
       className={cn(
-        "flex h-[52px] min-w-0 items-center gap-3 rounded-panel border bg-surface px-3 text-start transition-colors hover:bg-subtle",
-        selected ? "border-border-strong" : "border-border",
+        "relative flex min-h-9 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors",
+        selected
+          ? "bg-blue-500 text-white dark:bg-blue-600"
+          : "bg-accent text-muted-foreground hover:bg-accent/80",
       )}
     >
       {icon}
       <span className="min-w-0 flex-1">
-        <span
-          className="block truncate text-body font-medium text-fg-1"
-          title={name}
-        >
+        <span className="block truncate" title={name}>
           {name}
         </span>
         {detail && (
-          <span
-            className="block truncate text-caption text-fg-2"
-            title={detail}
-          >
+          <span className="sr-only" title={detail}>
             {detail}
           </span>
         )}
       </span>
       {needsRoute && <NeedsRouteBadge />}
+      {preset?.primePartner ? (
+        <Heart
+          className="absolute -right-1 -top-1 h-5 w-5 fill-amber-500 text-amber-500 drop-shadow-sm"
+          strokeWidth={0}
+          aria-hidden="true"
+        />
+      ) : preset?.isPartner ? (
+        <span
+          aria-hidden="true"
+          className="absolute -right-1 -top-1 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-white shadow-sm"
+        >
+          <Star className="h-2.5 w-2.5 fill-current" />
+        </span>
+      ) : null}
     </button>
   );
 }

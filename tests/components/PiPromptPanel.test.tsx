@@ -188,7 +188,7 @@ describe("Pi prompts page", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "prompts.enableAria:Team" }),
+      await screen.findByRole("switch", { name: "prompts.enableAria:Team" }),
     );
 
     await waitFor(() =>

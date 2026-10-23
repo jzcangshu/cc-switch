@@ -450,10 +450,11 @@ export function GrokBuildProviderForm({
       <form
         id="provider-form"
         onSubmit={form.handleSubmit(handleSubmit)}
-        className="space-y-6"
+        className="glass space-y-6 rounded-xl border border-white/10 p-6"
       >
         {!initialData && (
           <ProviderPresetSelector
+            appId="grokbuild"
             selectedPresetId={selectedPresetId}
             presetEntries={grokPresetEntries}
             presetCategoryLabels={presetCategoryLabels}

@@ -9,6 +9,29 @@ import { describe, expect, it, vi } from "vitest";
 
 import PromptFormPanel from "@/components/prompts/PromptFormPanel";
 import type { Prompt } from "@/lib/api";
+import type { ComponentProps } from "react";
+import type MarkdownEditor from "@/components/MarkdownEditor";
+
+vi.mock("@/components/MarkdownEditor", async () => {
+  const { forwardRef } = await import("react");
+  return {
+    default: forwardRef<
+      HTMLTextAreaElement,
+      ComponentProps<typeof MarkdownEditor>
+    >((props, ref) => (
+      <textarea
+        ref={ref}
+        id={props.id}
+        value={props.value}
+        onChange={(event) => props.onChange?.(event.target.value)}
+        disabled={props.readOnly}
+        aria-labelledby={props["aria-labelledby"]}
+        aria-describedby={props["aria-describedby"]}
+        aria-invalid={props["aria-invalid"]}
+      />
+    )),
+  };
+});
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -93,6 +116,7 @@ describe("PromptFormPanel", () => {
       "true",
     );
     expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/prompts.name/)).toHaveFocus();
   });
 
   it("names the overwritten file on the save button of the enabled prompt", () => {
@@ -154,6 +178,56 @@ describe("PromptFormPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "prompts.addSubmit" }));
 
+    expect(screen.getByText("prompts.mcodeTooLarge")).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("prompts.content")).toHaveFocus();
+    expect(screen.getByLabelText("prompts.content")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(
+      screen.getByLabelText("prompts.content"),
+    ).toHaveAccessibleDescription(/prompts.mcodeTooLarge/);
+  });
+
+  it("keeps the edited body after a failed save and unlocks the editor", async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error("write failed"));
+    const onClose = vi.fn();
+    render(
+      <PromptFormPanel
+        appId="claude"
+        initialData={active}
+        editingId="team"
+        onSave={onSave}
+        onClose={onClose}
+      />,
+    );
+    const body = screen.getByLabelText("prompts.content");
+    fireEvent.change(body, { target: { value: "# Edited\nKeep this draft" } });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "prompts.saveAndOverwrite:CLAUDE.md",
+      }),
+    );
+    await waitFor(() => expect(body).toBeEnabled());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(body).toHaveValue("# Edited\nKeep this draft");
+  });
+
+  it("applies the MiniMax limit to UTF-8 bytes rather than character count", () => {
+    const onSave = vi.fn();
+    render(
+      <PromptFormPanel
+        appId="mcode"
+        initialData={active}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("prompts.content"), {
+      target: { value: "汉".repeat(11_000) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "prompts.addSubmit" }));
     expect(screen.getByText("prompts.mcodeTooLarge")).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });

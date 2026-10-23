@@ -7,6 +7,7 @@ import en from "@/i18n/locales/en.json";
 import UnifiedSkillsPanel from "@/components/skills/UnifiedSkillsPanel";
 import { settingsApi, skillsApi } from "@/lib/api";
 import type {
+  DiscoverableSkill,
   InstalledSkill,
   SkillBackupEntry,
   SkillRepoFailure,
@@ -30,6 +31,7 @@ const m = vi.hoisted(() => ({
   toastWarning: vi.fn(),
   toastInfo: vi.fn(),
   installed: [] as InstalledSkill[],
+  discoverable: [] as DiscoverableSkill[],
   backups: [] as SkillBackupEntry[],
   updates: [] as SkillUpdateInfo[],
   repoFailures: [] as SkillRepoFailure[],
@@ -111,9 +113,14 @@ vi.mock("@/hooks/useSkills", () => ({
     mutateAsync: m.updateSkill,
     isPending: false,
   }),
-  useDiscoverableSkills: () => ({ data: [], refetch: vi.fn() }),
+  useDiscoverableSkills: () => ({ data: m.discoverable, refetch: vi.fn() }),
   useDiscoverableSkillsFailures: () => ({ data: [] }),
-  useSkillRepos: () => ({ data: [], refetch: vi.fn() }),
+  useSkillRepos: () => ({
+    data: m.discoverable.length
+      ? [{ owner: "owner", name: "repo", branch: "main", enabled: true }]
+      : [],
+    refetch: vi.fn(),
+  }),
   useAddSkillRepo: () => ({ mutateAsync: vi.fn() }),
   useRemoveSkillRepo: () => ({ mutateAsync: vi.fn() }),
   useSearchSkillsSh: () => ({ data: undefined, isLoading: false }),
@@ -158,14 +165,10 @@ const renderPanel = (
 const columns = () =>
   screen.getAllByRole("button", { name: /appMatrix.columnAria/ });
 
-async function openMenu(trigger: string, item: string) {
-  await userEvent.click(screen.getByRole("button", { name: trigger }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
-}
-
 describe("UnifiedSkillsPanel", () => {
   beforeEach(() => {
     m.installed = [];
+    m.discoverable = [];
     m.backups = [];
     m.updates = [];
     m.repoFailures = [];
@@ -526,13 +529,15 @@ describe("UnifiedSkillsPanel", () => {
     for (const pick of picks) expect(pick).not.toBeChecked();
   });
 
-  it("uninstalls through the row menu after confirming", async () => {
+  it("uninstalls directly from the card after confirming", async () => {
     m.installed = [makeSkill()];
     m.uninstall.mockResolvedValueOnce({
       preservedPiPath: "/tmp/.pi/agent/skills/alpha-skill",
     });
     renderPanel();
-    await openMenu("skillsPage.rowMoreAria", "skillsPage.uninstallEllipsis");
+    await userEvent.click(
+      screen.getByRole("button", { name: "skillsPage.uninstallEllipsis" }),
+    );
     expect(
       screen.getByText("skillsPage.confirm.uninstallBody"),
     ).toBeInTheDocument();
@@ -550,6 +555,57 @@ describe("UnifiedSkillsPanel", () => {
     );
   });
 
+  it("uses the existing confirmation and write lock when uninstalling from discovery", async () => {
+    m.installed = [makeSkill()];
+    m.discoverable = [
+      {
+        key: "alpha",
+        name: "Alpha Skill",
+        directory: "alpha-skill",
+        description: "Alpha description",
+        repoOwner: "owner",
+        repoName: "repo",
+        repoBranch: "main",
+      },
+    ];
+    const width = vi
+      .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockReturnValue(500);
+    const height = vi
+      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockReturnValue(600);
+    HTMLElement.prototype.scrollTo ??= vi.fn();
+    let finish!: () => void;
+    m.uninstall.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({});
+        }),
+    );
+    renderPanel({ initialView: "discover" });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "skills.uninstall" }),
+    );
+    expect(m.uninstall).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("skillsPage.confirm.uninstallBody"),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "skills.uninstall" }),
+    );
+    await waitFor(() => expect(m.uninstall).toHaveBeenCalledTimes(1));
+    expect(
+      within(dialog).getByRole("button", { name: "skills.uninstall" }),
+    ).toBeDisabled();
+    await act(async () => finish());
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    width.mockRestore();
+    height.mockRestore();
+  });
+
   it("filters to Skills with updates from the header count and updates them after confirming", async () => {
     m.installed = [
       makeSkill({ id: "a", name: "A" }),
@@ -563,13 +619,13 @@ describe("UnifiedSkillsPanel", () => {
     // 更新横幅已去掉：页头的「N 个可更新」、行上的徽标、「检查更新」按钮说的是同一件事
     expect(screen.getAllByText("skills.updateAvailable")).toHaveLength(1);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    // 已知有更新时「检查更新」直接变成「全部更新」，不用先筛选
+    // 全部更新和重新检查都是直接入口，不用先筛选或展开菜单。
     expect(
       screen.getAllByRole("button", { name: "skillsPage.updateAllCount" }),
     ).toHaveLength(1);
     expect(
-      screen.queryByRole("button", { name: "skills.checkUpdates" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "skills.checkUpdates" }),
+    ).toBeInTheDocument();
 
     const chip = screen.getByRole("button", {
       name: "skillsPage.headerUpdates",
@@ -614,18 +670,97 @@ describe("UnifiedSkillsPanel", () => {
     expect(m.updateSkill).toHaveBeenCalledWith("b");
   });
 
-  it("switches Installed / Discover with page tabs", async () => {
+  it("opens discovery directly, returns to installed, and keeps the discovery state mounted", async () => {
     m.installed = [makeSkill()];
     renderPanel();
-    const tabs = screen.getByRole("tablist", { name: "skillsPage.viewAria" });
-    const [installed, discover] = within(tabs).getAllByRole("tab");
-    expect(installed).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.queryByRole("tablist", { name: "skillsPage.viewAria" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.discover" }),
+    );
+    const search = screen.getByRole("textbox", {
+      name: "skillsPage.discover.skillsShAria",
+    });
+    await userEvent.type(search, "remembered-query");
+    await userEvent.click(screen.getByRole("button", { name: "common.back" }));
+    expect(search).not.toBeVisible();
+    expect(screen.getByTestId("skills-matrix")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.discover" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "skillsPage.discover.skillsShAria" }),
+    ).toBe(search);
+    expect(search).toHaveValue("remembered-query");
+  });
+
+  it("keeps the direct discovery action locked while an installed skill is being written", async () => {
+    m.installed = [makeSkill()];
+    let finish!: () => void;
+    m.toggle.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({});
+        }),
+    );
+    renderPanel();
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /appMatrix.cell/ })[0],
+    );
+    const discover = screen.getByRole("button", { name: "skills.discover" });
+    expect(discover).toBeDisabled();
+    await userEvent.click(discover);
+    expect(screen.getByTestId("skills-matrix")).toBeVisible();
+    await act(async () => finish());
+    expect(discover).toBeEnabled();
     await userEvent.click(discover);
     expect(
-      within(
-        screen.getByRole("tablist", { name: "skillsPage.viewAria" }),
-      ).getAllByRole("tab")[1],
-    ).toHaveAttribute("aria-selected", "true");
+      screen.getByRole("heading", { name: "skills.discover" }),
+    ).toBeVisible();
+  });
+
+  it("keeps check, restore, ZIP and import directly available and storage settings reachable", async () => {
+    m.installed = [makeSkill()];
+    renderPanel();
+    for (const name of [
+      "skills.checkUpdates",
+      "skillsPage.moreMenu.restore",
+      "skillsPage.addMenu.zip",
+      /^skillsPage\.addMenu\.import/,
+    ]) {
+      expect(screen.getByRole("button", { name })).toBeEnabled();
+    }
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.moreActions" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "skills.storageSheet.open" }),
+    );
+    expect(screen.getByTestId("storage-sheet")).toBeInTheDocument();
+  });
+
+  it("opens documentation and updates from installed card buttons", async () => {
+    m.installed = [makeSkill({ readmeUrl: "https://example.com/alpha" })];
+    m.updates = [
+      { id: "owner/repo:alpha-skill", name: "Alpha Skill", remoteHash: "new" },
+    ];
+    const openExternal = vi
+      .spyOn(settingsApi, "openExternal")
+      .mockResolvedValue(undefined);
+    renderPanel();
+    const card = screen.getByRole("listitem");
+    await userEvent.click(
+      within(card).getByRole("button", { name: "mcpPage.openDocs" }),
+    );
+    expect(openExternal).toHaveBeenCalledWith("https://example.com/alpha");
+    await userEvent.click(
+      within(card).getByRole("button", { name: "skills.update" }),
+    );
+    await waitFor(() =>
+      expect(m.updateSkill).toHaveBeenCalledWith("owner/repo:alpha-skill"),
+    );
+    openExternal.mockRestore();
   });
 
   it("lets the unmanaged notice be ignored with one control", async () => {
@@ -824,10 +959,7 @@ describe("UnifiedSkillsPanel", () => {
     renderPanel();
 
     await userEvent.click(
-      screen.getByRole("button", { name: /skillsPage.add/ }),
-    );
-    await userEvent.click(
-      await screen.findByRole("menuitem", { name: "skillsPage.addMenu.zip" }),
+      screen.getByRole("button", { name: "skillsPage.addMenu.zip" }),
     );
 
     await waitFor(() =>
@@ -906,7 +1038,9 @@ describe("UnifiedSkillsPanel", () => {
   it("closes the backup dialog and reports an explicit refresh failure", async () => {
     m.refetchBackups.mockRejectedValueOnce(new Error("refresh failed"));
     renderPanel();
-    await openMenu("skills.moreActions", "skillsPage.moreMenu.restore");
+    await userEvent.click(
+      screen.getByRole("button", { name: "skillsPage.moreMenu.restore" }),
+    );
     await waitFor(() =>
       expect(m.toastError).toHaveBeenCalledWith("common.error", {
         description: "Error: refresh failed",
@@ -934,7 +1068,9 @@ describe("UnifiedSkillsPanel", () => {
       .mockResolvedValueOnce({ data: m.backups })
       .mockRejectedValueOnce(new Error("refresh failed"));
     renderPanel();
-    await openMenu("skills.moreActions", "skillsPage.moreMenu.restore");
+    await userEvent.click(
+      screen.getByRole("button", { name: "skillsPage.moreMenu.restore" }),
+    );
     await userEvent.click(
       await screen.findByRole("button", {
         name: "skills.restoreFromBackup.delete",

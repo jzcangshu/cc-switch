@@ -10,7 +10,19 @@ vi.mock("@/components/ProviderIcon", () => ({
 }));
 
 vi.mock("@/components/IconPicker", () => ({
-  IconPicker: () => <div data-testid="icon-picker" />,
+  IconPicker: ({
+    onValueChange,
+  }: {
+    onValueChange: (icon: string) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onValueChange("claude")}
+      data-testid="icon-picker"
+    >
+      select-claude
+    </button>
+  ),
 }));
 
 const defaultValues: Partial<ProviderFormData> = {
@@ -39,6 +51,16 @@ function renderBasicForm() {
 }
 
 describe("BasicFormFields", () => {
+  it("keeps the icon picker open for preview until the user finishes", () => {
+    const { getForm } = renderBasicForm();
+    fireEvent.click(screen.getByRole("button", { name: "更换图标" }));
+    fireEvent.click(screen.getByRole("button", { name: "select-claude" }));
+    expect(getForm().getValues("icon")).toBe("claude");
+    expect(screen.getByTestId("icon-picker")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    expect(screen.queryByTestId("icon-picker")).not.toBeInTheDocument();
+    expect(getForm().getValues("icon")).toBe("claude");
+  });
   it.each([
     ["provider.name", "name", "原供应商"],
     ["provider.notes", "notes", "原备注"],

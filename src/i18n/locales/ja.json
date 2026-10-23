@@ -409,12 +409,12 @@
       "quotaDisplayLeft": "残り",
       "quotaDisplayUsed": "使用済み",
       "quotaDisplayHelp": "プロバイダーカード、アカウント、トレイで、各枠の残量を「残り」と「使用済み」のどちらで表示するかを選びます。残高と Credits は常に残りを表示します。",
-      "sidebarAndHeader": "サイドバーとヘッダー",
-      "visibleApps": "サイドバーに表示するアプリ",
+      "sidebarAndHeader": "アプリ切り替えとヘッダー",
+      "visibleApps": "アプリ切り替えに表示するアプリ",
       "goToApps": "「アプリ」を開く",
       "updates": "各アプリの新しいバージョン",
       "checkToolUpdates": "起動時に各アプリの新しいバージョンを確認",
-      "checkToolUpdatesHelp": "オンにすると、CC Switch の起動時にインストール済みのコマンドラインアプリの新しいバージョンを確認し、見つかればサイドバーの「アプリ」に点を表示します。自動でアップグレードはしません。",
+      "checkToolUpdatesHelp": "オンにすると、CC Switch の起動時にインストール済みのコマンドラインアプリの新しいバージョンを確認し、見つかればアプリ切り替えの「アプリ」に点を表示します。自動でアップグレードはしません。",
       "windowAndTerminal": "ウィンドウとターミナル",
       "trayStyle": "トレイの表示",
       "trayStylePanel": "パネル",
@@ -526,11 +526,11 @@
     },
     "language": "言語",
     "languageHint": "切り替えるとすぐにプレビューされ、保存後に永続化されます。",
-    "theme": "明暗",
+    "theme": "テーマ",
     "themeHint": "アプリのテーマを選択します。すぐに反映されます。",
-    "themeLight": "月の表側",
-    "themeDark": "月の裏側",
-    "themeSystem": "システムに合わせる",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeSystem": "システム",
     "importExport": "SQL インポート/エクスポート",
     "importExportHint": "移行や復元用にデータベースの SQL バックアップをインポート/エクスポートします（インポートは CC Switch がエクスポートしたバックアップのみ対応）。",
     "exportConfig": "SQL バックアップをエクスポート",
@@ -1274,6 +1274,8 @@
     "routeOnlySettingsHint": "以下の二つはルーティングモードでのみ有効です。"
   },
   "sessionManager": {
+    "readerRegion": "セッション閲覧",
+    "selectSession": "セッションを選択して内容を表示",
     "searchPlaceholder": "タイトル・ディレクトリ・最初と最後のメッセージ・セッション ID で検索",
     "searchSessions": "セッションを検索",
     "sessionList": "セッション一覧",
@@ -2400,7 +2402,7 @@
       "rateHint": "手動で入力し、表示の換算にのみ使います。費用は引き続き米ドルで記録されます。",
       "rateInvalid": "0 より大きい数値を入力してください",
       "approxNote": "換算した金額はホバーで米ドルの値を確認できます。",
-      "sidebarToday": "サイドバーの「今日」",
+      "sidebarToday": "下部の「今日」",
       "sidebarTodayItems": {
         "cost": "金額",
         "tokens": "トークン",
@@ -2954,7 +2956,8 @@
       "imported": "{{path}} の内容を取り込みました。ファイルは変更していません",
       "importedPi": "AGENTS.md をライブラリに保存しました。ファイルは変更していません",
       "copied": "「{{name}}」を {{apps}} にコピーしました"
-    }
+    },
+    "deleteAria": "{{name}}を削除"
   },
   "profiles": {
     "switcherAriaLabel": "プロジェクト：{{name}}",
@@ -4135,10 +4138,11 @@
     "refresh": "更新"
   },
   "nav": {
+    "routeServiceDown": "ルーティングサービスが停止しています",
     "mainLabel": "メインナビゲーション",
     "skipToContent": "メインコンテンツへスキップ",
-    "expandSidebar": "サイドバーを展開",
-    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "アプリ切り替えを展開",
+    "collapseSidebar": "アプリ切り替えを折りたたむ",
     "appsGroup": "アプリ",
     "today": "今日 {{value}}",
     "todayRequests": "{{value}} 回",
@@ -4149,7 +4153,7 @@
     "prompts": "プロンプト",
     "sessions": "セッション",
     "apps": "アプリ",
-    "appsTitle": "アプリ：インストール、アップグレード、サイドバーに表示するもの",
+    "appsTitle": "アプリ：インストール、アップグレード、アプリ切り替えに表示するもの",
     "appsHasUpdate": "アプリ · 更新があります",
     "settings": "設定",
     "settingsHasUpdate": "設定 · CC Switch の新しいバージョンがあります",
@@ -4161,11 +4165,11 @@
     "back": "戻る"
   },
   "appsPage": {
-    "showInSidebar": "{{name}} をサイドバーに表示",
+    "showInSidebar": "{{name}} をアプリ切り替えに表示",
     "lastChecked": "最終確認 {{time}}",
     "neverChecked": "まだ更新を確認していません",
     "helpTitle": "アプリ",
-    "helpBody": "ここでコマンドラインアプリをインストール・アップグレードし、サイドバーに表示するものを選びます。",
+    "helpBody": "ここでコマンドラインアプリをインストール・アップグレードし、アプリ切り替えに表示するものを選びます。",
     "checking": "確認中…",
     "checkUpdates": "更新を確認",
     "moreActions": "その他の操作",
@@ -4173,7 +4177,7 @@
     "columnApp": "アプリ",
     "columnVersion": "バージョン",
     "columnVisible": "表示",
-    "visibleHelp": "オフにすると、このアプリはサイドバー、トレイメニュー、MCP / Skills のアプリ列、プロンプトとセッションのアプリ選択に表示されなくなります。表示しないだけで、プロバイダーや MCP などの設定はそのまま残り、アプリ自身の設定ファイルも変更されません。",
+    "visibleHelp": "オフにすると、このアプリはアプリ切り替え、トレイメニュー、MCP / Skills のアプリ列、プロンプトとセッションのアプリ選択に表示されなくなります。表示しないだけで、プロバイダーや MCP などの設定はそのまま残り、アプリ自身の設定ファイルも変更されません。",
     "desktopHelp": "Claude Desktop はデスクトップアプリのため、ここではインストールやアップグレードはできません。CC Switch は設定ファイル経由で接続します。",
     "desktopUnsupported": "このシステムには対応していません",
     "desktopConnected": "接続済み",
@@ -4202,7 +4206,7 @@
     "viewSessions": "セッションを見る",
     "configDirectory": "設定ディレクトリ",
     "installAndUpgrade": "インストールとアップグレード",
-    "hideFromSidebar": "サイドバーから隠す",
+    "hideFromSidebar": "アプリ切り替えから隠す",
     "providers": "プロバイダー",
     "workspace": "ワークスペース",
     "openclawConfig": "設定",
@@ -4827,7 +4831,7 @@
   },
   "newLayoutNotice": {
     "title": "画面が新しくなりました",
-    "body": "このバージョンでは画面を一新し、いくつかの機能の場所が変わりました：\n• モードは各アプリのページ上部に移動しました\n• 使用量とアカウントはサイドバーにあります\n変更点の詳細はリリースノートをご覧ください。",
+    "body": "アプリの切り替えを上部に、よく使うツールを右側に戻しました。設定には従来の6つのタブを使用します。\n\n直結・ルーティング・集約にはV4のエンジンを使用します。タブの表示だけでは接続を変更しません。集約、アプリ管理、新しいセッション機能も利用できます。",
     "viewReleaseNotes": "リリースノートを見る",
     "confirm": "OK"
   },

@@ -63,12 +63,12 @@ interface ProviderCardProps {
   dragHandleProps?: DragHandleProps;
 }
 
-/** 当前那张：模式色边框 + 淡底；共存式「已添加」是中性的。 */
+/** 直连和共存式默认项沿用蓝色高亮，路由与聚合沿用绿色高亮。 */
 const TONE_CLASS: Record<CardTone, string> = {
-  direct: "border-direct-border bg-direct-soft",
-  route: "border-route-border bg-route-soft",
-  stack: "border-stack-border bg-stack-soft",
-  neutral: "border-border-strong bg-subtle",
+  direct: "border-blue-500/60 shadow-sm shadow-blue-500/10",
+  route: "border-emerald-500/60 shadow-sm shadow-emerald-500/10",
+  stack: "border-emerald-500/60 shadow-sm shadow-emerald-500/10",
+  neutral: "border-blue-500/60 shadow-sm shadow-blue-500/10",
 };
 
 const CHIP_CLASS: Record<CardChip["tone"], string> = {
@@ -318,157 +318,168 @@ export function ProviderCard({
   return (
     <div
       className={cn(
-        "group relative rounded-panel border transition-[border-color,box-shadow,background-color] duration-150",
+        "group relative overflow-hidden rounded-xl border bg-card/80 p-4 text-card-foreground backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
         presentation.tone
           ? TONE_CLASS[presentation.tone]
-          : "border-border bg-surface hover:border-border-strong hover:shadow-v7-sm",
+          : "border-border hover:border-border-strong hover:shadow-sm",
         dragHandleProps?.isDragging && "cursor-grabbing shadow-v7-md",
       )}
     >
-      <div className="flex min-h-[58px] items-center gap-3 py-2.5 pe-3 ps-2">
-        {dragHandleProps ? (
-          <button
-            type="button"
-            className={cn(
-              "flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-fg-3 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing",
-              dragHandleProps.isDragging && "cursor-grabbing opacity-100",
-            )}
-            aria-label={t("provider.dragHandle")}
-            {...dragHandleProps.attributes}
-            {...dragHandleProps.listeners}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-        ) : (
-          <span className="w-4 shrink-0" />
-        )}
-
-        <ProviderIconBox
-          icon={resolveProviderIcon(appId, provider.icon, provider.iconColor)}
-          name={provider.name}
-          color={provider.iconColor}
+      {presentation.tone && (
+        <div
+          aria-hidden="true"
           className={cn(
-            // 底色固定为白，图标颜色也要固定：单色（currentColor）图标和首字母
-            // fallback 不能继承深色模式下的浅色文字
-            "bg-white text-neutral-900",
-            presentation.dim && "opacity-60",
+            "pointer-events-none absolute inset-0 bg-gradient-to-r to-transparent",
+            presentation.tone === "route" || presentation.tone === "stack"
+              ? "from-emerald-500/10"
+              : "from-blue-500/10",
           )}
-          fallbackClassName="bg-transparent text-neutral-600"
         />
-
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <h3
+      )}
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {dragHandleProps ? (
+            <button
+              type="button"
               className={cn(
-                "m-0 min-w-0 truncate text-strong",
-                presentation.dim ? "text-fg-2" : "text-fg-1",
+                "-ml-1.5 flex shrink-0 cursor-grab items-center justify-center p-1.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground active:cursor-grabbing",
+                dragHandleProps.isDragging && "cursor-grabbing opacity-100",
               )}
-              title={provider.name}
+              aria-label={t("provider.dragHandle")}
+              {...dragHandleProps.attributes}
+              {...dragHandleProps.listeners}
             >
-              {provider.name}
-            </h3>
-            {presentation.chips.map((chip) => (
-              <CardChipBadge key={chip.key} chip={chip} />
-            ))}
-            {presentation.showHealth && health && (
-              <HealthChip
-                consecutiveFailures={health.consecutive_failures}
-                isHealthy={health.is_healthy}
-              />
-            )}
-          </div>
+              <GripVertical className="h-4 w-4" />
+            </button>
+          ) : null}
 
-          {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
-            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-caption text-fg-2">
-              {codexOfficialIdentity === "native_login" ? (
-                <span className="min-w-0 truncate" title={manualNote}>
-                  {manualNote ??
-                    t("codex.followCodexLoginDescription", {
-                      defaultValue: "账号会随 Codex CLI 当前登录变化",
-                    })}
-                </span>
-              ) : managedCodexAccount ? (
-                <>
-                  <span
-                    className="min-w-0 truncate"
-                    title={manualNote ?? managedCodexAccount.login}
-                  >
+          <ProviderIconBox
+            icon={resolveProviderIcon(appId, provider.icon, provider.iconColor)}
+            name={provider.name}
+            color={provider.iconColor}
+            className={cn(
+              // 底色固定为白，图标颜色也要固定：单色（currentColor）图标和首字母
+              // fallback 不能继承深色模式下的浅色文字
+              "rounded-lg bg-white text-neutral-900 transition-transform duration-300 group-hover:scale-105",
+              presentation.dim && "opacity-60",
+            )}
+            fallbackClassName="bg-transparent text-neutral-600"
+          />
+
+          <div className="min-w-0 flex-1">
+            <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2">
+              <h3
+                className={cn(
+                  "m-0 min-w-0 truncate text-base font-semibold leading-none",
+                  presentation.dim ? "text-fg-2" : "text-fg-1",
+                )}
+                title={provider.name}
+              >
+                {provider.name}
+              </h3>
+              {presentation.chips.map((chip) => (
+                <CardChipBadge key={chip.key} chip={chip} />
+              ))}
+              {presentation.showHealth && health && (
+                <HealthChip
+                  consecutiveFailures={health.consecutive_failures}
+                  isHealthy={health.is_healthy}
+                />
+              )}
+            </div>
+
+            {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 text-caption text-fg-2">
+                {codexOfficialIdentity === "native_login" ? (
+                  <span className="min-w-0 truncate" title={manualNote}>
                     {manualNote ??
-                      (providerNameIncludesAccountLogin
-                        ? t("codex.openAiAccount", {
-                            defaultValue: "OpenAI 账号",
-                          })
-                        : managedCodexAccount.login)}
+                      t("codex.followCodexLoginDescription", {
+                        defaultValue: "账号会随 Codex CLI 当前登录变化",
+                      })}
                   </span>
-                  {managedCodexAccount.reauth_required && (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-warning-text">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {t("codexOauth.reauthBadge", "需要重新登录")}
+                ) : managedCodexAccount ? (
+                  <>
+                    <span
+                      className="min-w-0 truncate"
+                      title={manualNote ?? managedCodexAccount.login}
+                    >
+                      {manualNote ??
+                        (providerNameIncludesAccountLogin
+                          ? t("codex.openAiAccount", {
+                              defaultValue: "OpenAI 账号",
+                            })
+                          : managedCodexAccount.login)}
                     </span>
-                  )}
-                </>
-              ) : isCodexAuthStatusError ? (
-                <span className="inline-flex min-w-0 items-center gap-1 text-warning-text">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">
-                    {t("codex.accountStatusUnavailable", {
-                      defaultValue: "无法读取账号信息",
-                    })}
-                  </span>
-                </span>
-              ) : isCodexAuthStatusSuccess ? (
-                <>
-                  <span className="inline-flex min-w-0 items-center gap-1 text-sm text-warning-text">
+                    {managedCodexAccount.reauth_required && (
+                      <span className="inline-flex shrink-0 items-center gap-1 text-warning-text">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {t("codexOauth.reauthBadge", "需要重新登录")}
+                      </span>
+                    )}
+                  </>
+                ) : isCodexAuthStatusError ? (
+                  <span className="inline-flex min-w-0 items-center gap-1 text-warning-text">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {t("codex.boundAccountUnavailable", {
-                        defaultValue: "绑定的账号不可用",
+                      {t("codex.accountStatusUnavailable", {
+                        defaultValue: "无法读取账号信息",
                       })}
                     </span>
                   </span>
-                  <button
-                    type="button"
-                    className="shrink-0 text-body font-medium text-action-text hover:underline"
-                    onClick={() => onEdit(provider)}
-                  >
-                    {t("codex.chooseAccount", {
-                      defaultValue: "选择账号",
+                ) : isCodexAuthStatusSuccess ? (
+                  <>
+                    <span className="inline-flex min-w-0 items-center gap-1 text-sm text-warning-text">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {t("codex.boundAccountUnavailable", {
+                          defaultValue: "绑定的账号不可用",
+                        })}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-body font-medium text-action-text hover:underline"
+                      onClick={() => onEdit(provider)}
+                    >
+                      {t("codex.chooseAccount", {
+                        defaultValue: "选择账号",
+                      })}
+                    </button>
+                  </>
+                ) : (
+                  <span className="min-w-0 truncate">
+                    {t("codex.accountLoading", {
+                      defaultValue: "正在加载账号…",
                     })}
-                  </button>
-                </>
-              ) : (
-                <span className="min-w-0 truncate">
-                  {t("codex.accountLoading", {
-                    defaultValue: "正在加载账号…",
-                  })}
+                  </span>
+                )}
+              </div>
+            ) : agyModel ? (
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-caption text-fg-2">
+                <span className="min-w-0 truncate" title={agyModel}>
+                  {agyModel}
                 </span>
-              )}
-            </div>
-          ) : agyModel ? (
-            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-caption text-fg-2">
-              <span className="min-w-0 truncate" title={agyModel}>
-                {agyModel}
-              </span>
-            </div>
-          ) : displayUrl ? (
-            <button
-              type="button"
-              onClick={handleOpenWebsite}
-              className={cn(
-                "mt-0.5 inline-flex max-w-full items-center overflow-hidden text-start text-caption text-fg-2",
-                isClickableUrl
-                  ? "cursor-pointer decoration-border-strong underline-offset-[3px] hover:underline"
-                  : "cursor-default",
-              )}
-              title={displayUrl}
-              disabled={!isClickableUrl}
-            >
-              <span className="min-w-0 truncate">{displayUrl}</span>
-            </button>
-          ) : null}
+              </div>
+            ) : displayUrl ? (
+              <button
+                type="button"
+                onClick={handleOpenWebsite}
+                className={cn(
+                  "mt-0.5 inline-flex max-w-full items-center overflow-hidden text-start text-sm",
+                  isClickableUrl
+                    ? "cursor-pointer text-blue-500 transition-colors underline-offset-[3px] hover:underline dark:text-blue-400"
+                    : "cursor-default text-muted-foreground",
+                )}
+                title={displayUrl}
+                disabled={!isClickableUrl}
+              >
+                <span className="min-w-0 truncate">{displayUrl}</span>
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-3">
           {/* 额度列 136 宽，带重置倒计时时 194 宽（见 QuotaLines） */}
           <div className="max-w-[208px] text-end">
             <div className="flex items-center justify-end gap-1">
@@ -588,7 +599,7 @@ export function ProviderCard({
       </div>
 
       {isExpanded && hasMultiplePlans && (
-        <div className="mx-4 mb-3 border-t border-border pt-3">
+        <div className="relative mt-4 border-t border-border pt-4">
           <UsageFooter
             provider={provider}
             providerId={provider.id}

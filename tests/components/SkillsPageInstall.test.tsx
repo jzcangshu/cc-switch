@@ -1,6 +1,14 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { settingsApi } from "@/lib/api";
 
 import { SkillsPage } from "@/components/skills/SkillsPage";
 import type {
@@ -55,18 +63,33 @@ const setSearchResult = (
   });
 };
 
-// jsdom 没有布局，虚拟列表量不出可视高度：全部渲染
-vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getTotalSize: () => count * 56,
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        index,
-        key: index,
-        start: index * 56,
-      })),
-  }),
-}));
+// 保留真正的虚拟列表，只为 jsdom 提供容器和卡片行尺寸。
+let viewportWidth = 500;
+let rowHeights: Record<number, number> = {};
+const resizeObservers = new Set<{
+  callback: ResizeObserverCallback;
+  targets: Set<Element>;
+  observer: ResizeObserver;
+}>();
+function notifyResize(target: Element) {
+  for (const item of [...resizeObservers]) {
+    if (!item.targets.has(target)) continue;
+    item.callback(
+      [
+        {
+          target,
+          borderBoxSize: [
+            {
+              inlineSize: (target as HTMLElement).offsetWidth,
+              blockSize: (target as HTMLElement).offsetHeight,
+            },
+          ],
+        } as unknown as ResizeObserverEntry,
+      ],
+      item.observer,
+    );
+  }
+}
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -139,24 +162,75 @@ function renderPage(
     }),
   );
   const onShowInstalled = vi.fn();
+  const onUninstall = vi.fn();
   render(
     <SkillsPage
-      renderViewTabs={(trailing) => trailing}
       visibleAppIds={["claude", "codex", "pi"]}
       installTargets={["codex", "claude"]}
       onInstallTargetsChange={vi.fn()}
       installTo={installTo as never}
       onShowInstalled={onShowInstalled}
+      onUninstall={onUninstall}
       onOpenRepoManager={vi.fn()}
       onEnableFailures={vi.fn()}
       {...overrides}
     />,
   );
-  return { installTo, onShowInstalled };
+  return { installTo, onShowInstalled, onUninstall };
 }
 
 describe("SkillsPage (Discover)", () => {
   beforeEach(() => {
+    viewportWidth = 500;
+    rowHeights = {};
+    resizeObservers.clear();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        private entry: {
+          callback: ResizeObserverCallback;
+          targets: Set<Element>;
+          observer: ResizeObserver;
+        };
+        constructor(callback: ResizeObserverCallback) {
+          this.entry = {
+            callback,
+            targets: new Set(),
+            observer: this as unknown as ResizeObserver,
+          };
+          resizeObservers.add(this.entry);
+        }
+        observe(target: Element) {
+          this.entry.targets.add(target);
+        }
+        unobserve(target: Element) {
+          this.entry.targets.delete(target);
+        }
+        disconnect() {
+          resizeObservers.delete(this.entry);
+        }
+      },
+    );
+    for (const property of ["clientWidth", "offsetWidth"] as const) {
+      vi.spyOn(HTMLElement.prototype, property, "get").mockImplementation(
+        function (this: HTMLElement) {
+          return this.dataset.testid === "skills-discover-scroll"
+            ? viewportWidth
+            : 0;
+        },
+      );
+    }
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.dataset.testid === "skills-discover-scroll")
+          return viewportWidth === 0 ? 0 : 600;
+        if (viewportWidth === 0) return 0;
+        return this.hasAttribute("data-index")
+          ? (rowHeights[Number(this.dataset.index)] ?? 212)
+          : 0;
+      },
+    );
+    HTMLElement.prototype.scrollTo ??= vi.fn();
     m.install.mockReset().mockImplementation(async ({ skill }) => ({
       id: skill.key,
     }));
@@ -167,6 +241,111 @@ describe("SkillsPage (Discover)", () => {
     m.installed = [];
     m.repos = [];
     searchCache.clear();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("groups responsive cards into virtual rows and remeasures taller content without overlap", async () => {
+    viewportWidth = 1100;
+    rowHeights = { 0: 260 };
+    m.repos = [makeRepo()];
+    m.discoverable = Array.from({ length: 7 }, (_, index) =>
+      makeDiscoverable({
+        key: `skill-${index}`,
+        name: `Skill ${index}`,
+        directory: `skill-${index}`,
+      }),
+    );
+    renderPage();
+    const list = screen.getByRole("list", {
+      name: "skillsPage.discover.listLabel",
+    });
+    const virtualRows = () =>
+      Array.from(list.querySelectorAll<HTMLElement>("[data-index]"));
+    await waitFor(() => expect(virtualRows()).toHaveLength(3));
+    expect(
+      virtualRows().map((row) => within(row).getAllByRole("listitem").length),
+    ).toEqual([3, 3, 1]);
+    expect(virtualRows()[1]).toHaveStyle({ transform: "translateY(276px)" });
+    act(() => {
+      rowHeights[0] = 340;
+      notifyResize(virtualRows()[0]);
+    });
+    await waitFor(() =>
+      expect(virtualRows()[1]).toHaveStyle({ transform: "translateY(356px)" }),
+    );
+    const scroll = screen.getByTestId("skills-discover-scroll");
+    act(() => {
+      viewportWidth = 700;
+      notifyResize(scroll);
+    });
+    await waitFor(() => expect(virtualRows()).toHaveLength(4));
+    expect(
+      virtualRows().map((row) => within(row).getAllByRole("listitem").length),
+    ).toEqual([2, 2, 2, 1]);
+    act(() => {
+      viewportWidth = 400;
+      notifyResize(scroll);
+    });
+    await waitFor(() =>
+      expect(
+        virtualRows().every(
+          (row) => within(row).getAllByRole("listitem").length === 1,
+        ),
+      ).toBe(true),
+    );
+    fireEvent.scroll(scroll, { target: { scrollTop: 1000 } });
+    await waitFor(() =>
+      expect(within(list).getByText("Skill 6")).toBeInTheDocument(),
+    );
+    expect(
+      new Set(
+        within(list)
+          .getAllByRole("listitem")
+          .map((card) => card.getAttribute("aria-posinset")),
+      ).size,
+    ).toBe(within(list).getAllByRole("listitem").length);
+  });
+
+  it("renders only visible card rows from a large catalog and preserves them while hidden", async () => {
+    viewportWidth = 1100;
+    m.repos = [makeRepo()];
+    m.discoverable = Array.from({ length: 100 }, (_, index) =>
+      makeDiscoverable({
+        key: `skill-${index}`,
+        name: `Skill ${index}`,
+        directory: `skill-${index}`,
+      }),
+    );
+    renderPage();
+    await screen.findByText("Skill 0");
+    const before = screen.getAllByRole("listitem").length;
+    expect(before).toBeLessThan(30);
+    act(() => {
+      viewportWidth = 0;
+      notifyResize(screen.getByTestId("skills-discover-scroll"));
+      for (const row of document.querySelectorAll("[data-index]"))
+        notifyResize(row);
+    });
+    expect(screen.getAllByRole("listitem")).toHaveLength(before);
+  });
+
+  it("opens the selected card documentation directly", async () => {
+    m.repos = [makeRepo()];
+    m.discoverable = [
+      makeDiscoverable({ readmeUrl: "https://example.com/skill-docs" }),
+    ];
+    const openExternal = vi
+      .spyOn(settingsApi, "openExternal")
+      .mockResolvedValue(undefined);
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "skills.view" }),
+    );
+    expect(openExternal).toHaveBeenCalledWith("https://example.com/skill-docs");
+    expect(m.install).not.toHaveBeenCalled();
   });
 
   it("installs the chosen skills.sh result into the first install-to app", async () => {
@@ -309,7 +488,7 @@ describe("SkillsPage (Discover)", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("links an installed result to its row instead of offering uninstall", async () => {
+  it("keeps management navigation and direct uninstall on installed discovery cards", async () => {
     m.repos = [makeRepo()];
     m.discoverable = [
       makeDiscoverable(),
@@ -339,12 +518,15 @@ describe("SkillsPage (Discover)", () => {
         updatedAt: 1,
       },
     ];
-    const { onShowInstalled } = renderPage();
+    const { onShowInstalled, onUninstall } = renderPage();
     await userEvent.click(
       screen.getByRole("button", { name: "skillsPage.discover.installedAria" }),
     );
     expect(onShowInstalled).toHaveBeenCalledWith("owner-a/repo-a:repo-skill");
-    expect(screen.queryByText("skills.uninstall")).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "skills.uninstall" }),
+    );
+    expect(onUninstall).toHaveBeenCalledWith("owner-a/repo-a:repo-skill");
 
     // 「只看未安装」是页内筛选：复选框，不是第二层分段控件
     expect(
@@ -375,6 +557,77 @@ describe("SkillsPage (Discover)", () => {
     expect(
       screen.getByRole("button", { name: "skillsPage.discover.retryAria" }),
     ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "skillsPage.discover.retryAria" }),
+    );
+    await waitFor(() => expect(m.install).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByText("skillsPage.discover.installFailed"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the existing skill when a discovered directory is already occupied", async () => {
+    m.repos = [makeRepo()];
+    m.discoverable = [makeDiscoverable()];
+    m.installed = [
+      {
+        id: "local:repo-skill",
+        name: "Local Skill",
+        description: "",
+        directory: "repo-skill",
+        apps: {
+          claude: true,
+          codex: false,
+          gemini: false,
+          opencode: false,
+          openclaw: false,
+          hermes: false,
+          pi: false,
+        },
+        installedAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    const { onShowInstalled } = renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "skillsPage.discover.dirTaken",
+      }),
+    );
+    expect(onShowInstalled).toHaveBeenCalledWith("local:repo-skill");
+    expect(m.install).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "skillsPage.discover.installAria" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps partial target-enable failures after a successful card installation", async () => {
+    m.repos = [makeRepo()];
+    m.discoverable = [makeDiscoverable()];
+    const failures = [
+      {
+        id: "repo-skill:owner-a:repo-a",
+        app: "claude" as const,
+        error: "permission denied",
+      },
+    ];
+    const onEnableFailures = vi.fn();
+    renderPage({
+      installTo: async (install) => ({
+        installed: await install("codex"),
+        failures,
+      }),
+      onEnableFailures,
+    });
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "skillsPage.discover.installAria",
+      }),
+    );
+    await waitFor(() =>
+      expect(onEnableFailures).toHaveBeenCalledWith(failures),
+    );
+    expect(m.install).toHaveBeenCalledTimes(1);
   });
 
   it("turns a repository off through add_skill_repo with enabled=false", async () => {

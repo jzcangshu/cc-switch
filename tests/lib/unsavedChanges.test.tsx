@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { createPortal } from "react-dom";
 
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import { Sheet, SheetPageContent } from "@/components/ui/sheet";
@@ -20,6 +21,22 @@ function Editor({ enabled = true }: { enabled?: boolean }) {
         reveal
       </button>
       <button type="button">expand</button>
+      <div data-unsaved-ignore>
+        <input aria-label="search" />
+        <select aria-label="filter">
+          <option value="all">all</option>
+          <option value="one">one</option>
+        </select>
+      </div>
+      {createPortal(
+        <div data-unsaved-ignore>
+          <input aria-label="portal-search" />
+          <button type="button" role="option">
+            portal-filter
+          </button>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
@@ -45,6 +62,25 @@ describe("unsaved changes tracker", () => {
     expect(hasUnsavedChanges()).toBe(true);
     view.unmount();
     expect(hasUnsavedChanges()).toBe(false);
+  });
+
+  it("ignores input, change and click events from marked display tools including portals", () => {
+    render(<Editor />);
+    fireEvent.input(screen.getByLabelText("search"), {
+      target: { value: "query" },
+    });
+    fireEvent.change(screen.getByLabelText("filter"), {
+      target: { value: "one" },
+    });
+    fireEvent.change(screen.getByLabelText("portal-search"), {
+      target: { value: "query" },
+    });
+    fireEvent.click(screen.getByRole("option", { name: "portal-filter" }));
+    expect(hasUnsavedChanges()).toBe(false);
+    fireEvent.change(screen.getByLabelText("name"), {
+      target: { value: "Edited name" },
+    });
+    expect(hasUnsavedChanges()).toBe(true);
   });
 
   it("does nothing while disabled and forgets edits once disabled", () => {
